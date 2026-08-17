@@ -559,19 +559,20 @@ textarea {
 
 /* ---- 写真 ---- */
 
-/* 写真は本編の後ろに別ページで付ける。枚数に応じてページが増える */
-.pr-photo-section {
-  page-break-before: always;
-  break-before: page;
-}
-
 .pr-photos {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4mm 3.5mm;
+  gap: 3.5mm;
 }
 
+/*
+ * 写真の大きさは全て同じにする。縦写真・横写真・キャプションの行数に関係なく
+ * 枠の高さを固定し、はみ出した分は隠す。写真枠40mm＋キャプション12mm。
+ */
 .pr-photo {
+  height: 52mm;
+  overflow: hidden;
+  margin: 0;
   page-break-inside: avoid;
   break-inside: avoid;
 }
@@ -582,7 +583,7 @@ textarea {
 
 .pr-photo img {
   width: 100%;
-  height: 44mm;
+  height: 40mm;
   object-fit: cover;
   border: 0.6pt solid #ccc;
   border-radius: 1.6mm;
@@ -619,6 +620,17 @@ textarea {
 
 .pr-photo figcaption {
   margin-top: 1.2mm;
+}
+
+/* カテゴリ番号と判定。項目名の上に小さく置く */
+.pr-photo-cat {
+  display: block;
+  font-size: 6.8pt;
+  color: #666;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pr-photo-cap {
@@ -872,8 +884,8 @@ textarea {
 }
 
 /* ==================================================================
- * カテゴリ単位の写真欄（入力画面）
- * 2列 × 4段 = スマホ縦持ちの1画面にちょうど8枚。
+ * 項目単位の写真欄（入力画面）
+ * 各項目の判定ボタンの直下に置く2列のグリッド。
  * 縦写真と横写真が混ざってもタイルが揃うよう、比率を4/3に固定して切り抜く。
  * ================================================================== */
 

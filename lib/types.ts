@@ -29,7 +29,10 @@ export type Answer = {
   due: string;
   /** 是正が済んだ日 (YYYY-MM-DD) */
   doneAt: string;
-  /** 写真のID。実体は端末内(IndexedDB)にあり、この配列は参照だけを持つ */
+  /**
+   * この項目の証拠写真のID。実体は端末内(IndexedDB)にあり、ここは参照だけを持つ。
+   * どの項目の証拠かを1対1で特定できるよう、写真は項目単位で持つ。
+   */
   photos: string[];
 };
 
@@ -40,12 +43,6 @@ export type Inspection = {
   date: string;
   inspector: string;
   answers: Record<number, Answer>;
-  /**
-   * カテゴリ単位で撮った写真。項目ではなくカテゴリに紐づく。
-   * 入力画面ではカテゴリの項目リストの直後に常時表示する。
-   * 既存データには無いので省略可にしてある。
-   */
-  categoryPhotos?: Record<string, string[]>;
   createdAt: string;
   updatedAt: string;
   /** 視察を締めた日時。締めると履歴に確定表示される */

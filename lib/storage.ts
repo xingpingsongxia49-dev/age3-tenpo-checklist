@@ -96,7 +96,6 @@ function normalize(raw: unknown): AppData {
     lastInspector: typeof d.lastInspector === "string" ? d.lastInspector : "",
     inspections: d.inspections.map((insp) => ({
       ...insp,
-      categoryPhotos: insp.categoryPhotos ?? {},
       answers: Object.fromEntries(
         Object.entries(insp.answers ?? {}).map(([k, v]) => [
           k,
@@ -155,15 +154,11 @@ export const localStorageBacked: Storage = {
     const data = await this.loadAll();
     const photos: Record<string, string> = {};
     if (withPhotos) {
-      // 項目に直接付けた写真と、カテゴリ単位で撮った写真の両方を入れる。
-      // 片方でも漏らすと、復元したときに写真が消える。
+      // 項目に付いた写真を1枚残らず集める。ここを漏らすと復元時に写真が消える。
       const ids = new Set<string>();
       for (const insp of data.inspections) {
         for (const a of Object.values(insp.answers)) {
           for (const pid of a.photos ?? []) ids.add(pid);
-        }
-        for (const list of Object.values(insp.categoryPhotos ?? {})) {
-          for (const pid of list) ids.add(pid);
         }
       }
       for (const pid of ids) {
@@ -240,10 +235,10 @@ export const storage: Storage = isSupabaseConfigured
 /* 写真の前処理（そのまま保存すると1枚数MBで容量を食い潰す）           */
 /* ------------------------------------------------------------------ */
 
-const MAX_EDGE = 1280;
-const JPEG_QUALITY = 0.72;
+const MAX_EDGE = 1600;
+const JPEG_QUALITY = 0.8;
 
-/** 長辺1280pxのJPEGに縮小してから保存する */
+/** 長辺1600pxのJPEG(品質0.8)に縮小してから保存する。項目ごとに増えても容量が破綻しないように */
 export async function compressImage(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file).catch(() => null);
   if (!bitmap) return file;

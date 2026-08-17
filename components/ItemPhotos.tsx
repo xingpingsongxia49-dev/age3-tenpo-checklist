@@ -4,9 +4,10 @@ import { useRef, useState } from "react";
 import { usePhotoUrl, useStore } from "@/lib/store";
 
 /**
- * カテゴリ単位の写真欄。項目リストの直後に常時表示する。
+ * 項目単位の写真欄。各項目の判定ボタンの直下に置く。
+ * どの項目の証拠写真かが1対1で分かるようにするため、写真は項目に紐づける。
  *
- * タイルは 2列 × 4段 = 1画面8枚。縦写真と横写真が混ざっても並びが崩れないよう、
+ * タイルは2列。縦写真と横写真が混ざっても並びが崩れないよう、
  * aspect-ratio を 4/3 に固定して object-fit: cover で切り抜く。
  * タップで拡大したときは切り抜かず、元の比率のまま全体を見せる。
  */
@@ -58,16 +59,16 @@ function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
   );
 }
 
-export function CategoryPhotos({
+export function ItemPhotos({
   inspectionId,
-  category,
+  itemId,
   photos,
 }: {
   inspectionId: string;
-  category: string;
+  itemId: number;
   photos: string[];
 }) {
-  const { addCategoryPhoto, removeCategoryPhoto } = useStore();
+  const { addPhoto, removePhoto } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
@@ -77,7 +78,7 @@ export function CategoryPhotos({
   return (
     <section className="cp">
       <div className="cp-head">
-        <span className="cp-title">このカテゴリの写真</span>
+        <span className="cp-title">この項目の写真</span>
         <span className="cp-count">{photos.length}枚</span>
         <button type="button" className="cp-add-btn" onClick={pick} disabled={busy}>
           {busy ? "保存中…" : "＋ 写真を追加"}
@@ -97,7 +98,7 @@ export function CategoryPhotos({
           if (files.length === 0) return;
           setBusy(true);
           for (const file of files) {
-            await addCategoryPhoto(inspectionId, category, file);
+            await addPhoto(inspectionId, itemId, file);
           }
           setBusy(false);
         }}
@@ -108,7 +109,7 @@ export function CategoryPhotos({
           <Tile
             key={pid}
             photoId={pid}
-            onRemove={() => void removeCategoryPhoto(inspectionId, category, pid)}
+            onRemove={() => void removePhoto(inspectionId, itemId, pid)}
             onOpen={setZoom}
           />
         ))}

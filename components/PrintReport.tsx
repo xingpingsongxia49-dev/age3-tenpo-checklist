@@ -94,16 +94,17 @@ function Kpi({
   );
 }
 
+/** 写真1枚分。枠の大きさはCSSで固定してあり、どの写真も同じ大きさで並ぶ */
 function PhotoCell({
   url,
   judgement,
+  category,
   caption,
-  note,
 }: {
   url?: string;
   judgement: string | null;
+  category: string;
   caption: string;
-  note?: string;
 }) {
   const ink =
     judgement === "×" ? INK.ng : judgement === "△" ? INK.mid : judgement === "○" ? INK.ok : INK.na;
@@ -113,15 +114,13 @@ function PhotoCell({
         {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {url && <img src={url} alt={caption} />}
-        {judgement && (
-          <span className="pr-photo-judge" style={{ background: ink }}>
-            判定 {judgement}
-          </span>
-        )}
+        <span className="pr-photo-judge" style={{ background: ink }}>
+          判定 {judgement ?? "未入力"}
+        </span>
       </div>
       <figcaption>
+        <span className="pr-photo-cat">{category}</span>
         <span className="pr-photo-cap">{caption}</span>
-        {note && <span className="pr-photo-note">{note}</span>}
       </figcaption>
     </figure>
   );
@@ -189,60 +188,46 @@ export function StoreReport({
     : [];
   const worsenedCount = allIssues.filter((r) => r.worsened).length;
 
-  // 要改善の写真はカード内に出す。カードに載らなかったもの（カテゴリ単位で撮った写真、
-  // ○・対象外の項目に直接付いた写真、掲載枠から外れた要改善）は
-  // 落とさず「そのほかの写真」に回す。ここはカードの1ページ8枚とは無関係。
-  const cardIds = new Set(issues.map(({ item }) => item.id));
-
-  const otherPhotos: {
-    pid: string;
-    caption: string;
-    judgement: string | null;
-    note?: string;
-  }[] = [
-    // カテゴリ単位で撮った写真
-    ...CATEGORIES.flatMap((cat) =>
-      (inspection.categoryPhotos?.[cat] ?? []).map((pid, i, arr) => ({
+  // 項目に付いた写真を全部集めて、1ページ目の空きスペースから並べる。
+  // 見る順番は ×（危ない）→ △ → ○ の優先度。同じ判定なら重要度、次に項目番号。
+  const judgeRank: Record<string, number> = { "×": 0, "△": 1, "○": 2, 対象外: 3 };
+  const allPhotos = items
+    .map((item) => ({ item, a: answerOf(inspection, item.id) }))
+    .filter(({ a }) => a.photos.length > 0)
+    .sort(
+      (x, y) =>
+        (judgeRank[x.a.judgement ?? ""] ?? 4) - (judgeRank[y.a.judgement ?? ""] ?? 4) ||
+        weightRank[x.item.weight] - weightRank[y.item.weight] ||
+        x.item.id - y.item.id,
+    )
+    .flatMap(({ item, a }) =>
+      a.photos.map((pid, i) => ({
         pid,
-        caption: `${cat}${arr.length > 1 ? `（${i + 1}/${arr.length}）` : ""}`,
-        judgement: null as string | null,
-        note: undefined,
+        category: item.category,
+        caption: `${item.id}. ${item.text}${a.photos.length > 1 ? `（${i + 1}/${a.photos.length}）` : ""}`,
+        judgement: a.judgement as string | null,
       })),
-    ),
-    // 項目に直接付いた写真のうち、カードに出ていないもの
-    ...items
-      .filter((i) => !cardIds.has(i.id))
-      .map((item) => ({ item, a: answerOf(inspection, item.id) }))
-      .filter(({ a }) => a.photos.length > 0)
-      .flatMap(({ item, a }) =>
-        a.photos.map((pid, i) => ({
-          pid,
-          caption: `${item.id}. ${item.text}${a.photos.length > 1 ? `（${i + 1}/${a.photos.length}）` : ""}`,
-          judgement: a.judgement as string | null,
-          note: a.note || undefined,
-        })),
-      ),
-  ];
+    );
 
-  const issuePhotoIds = includePhotos
-    ? issues.flatMap(({ a }) => a.photos).slice(0, MAX_PHOTOS)
-    : [];
-  const refPhotos = includePhotos
-    ? otherPhotos.slice(0, Math.max(0, MAX_PHOTOS - issuePhotoIds.length))
-    : [];
-  const photoOmitted = includePhotos
-    ? issues.flatMap(({ a }) => a.photos).length +
-      otherPhotos.length -
-      issuePhotoIds.length -
-      refPhotos.length
-    : 0;
+  const gallery = includePhotos ? allPhotos.slice(0, MAX_PHOTOS) : [];
+  const photoOmitted = includePhotos ? allPhotos.length - gallery.length : 0;
+
+  // 要改善カードにも写真を出すので、そのぶんのURLも一緒に読み込む
+  // カードに出るのは1件につき先頭2枚だけなので、読み込むのもそこまで
+  const issuePhotoIds = includePhotos ? issues.flatMap(({ a }) => a.photos.slice(0, 2)) : [];
 
   // 写真は端末内(IndexedDB)から非同期に読む。全部そろう前に印刷すると
   // 空枠のまま出てしまうので、揃ったことを data-photos-ready で外に伝える。
   const { urls, ready: photosReady } = usePhotoUrls([
-    ...issuePhotoIds,
-    ...refPhotos.map((p) => p.pid),
+    ...new Set([...gallery.map((p) => p.pid), ...issuePhotoIds]),
   ]);
+
+  // 節番号は中身の有無で変わる
+  let sec = 1;
+  const secCategory = sec++;
+  const secPhotos = gallery.length > 0 ? sec++ : null;
+  const secPrevious = previous && prevS ? sec++ : null;
+  const secIssues = sec++;
 
   return (
     <div className="pr-doc pr-sheet" data-photos-ready={photosReady ? "true" : "false"}>
@@ -336,7 +321,7 @@ export function StoreReport({
       )}
 
       {/* 1. カテゴリ別 */}
-      <h2 className="pr-h2">1. カテゴリ別 加重達成率</h2>
+      <h2 className="pr-h2">{secCategory}. カテゴリ別 加重達成率</h2>
       <table className="pr-table pr-cat">
         <thead>
           <tr>
@@ -388,10 +373,42 @@ export function StoreReport({
         加重達成率 ＝ Σ(重み×判定係数) ÷ Σ(重み)。重み S=5／A=3／B=1、判定 ○=1.0／△=0.5／×=0。対象外と未入力は分母から除外。
       </p>
 
-      {/* 2. 前回比較 */}
+      {/* 現場写真。1ページ目の空きから並べ、入り切らない分は次のページへ続く。
+          どの写真も同じ大きさ（枠の高さをCSSで固定）で、順番は ×→△→○ */}
+      {gallery.length > 0 && (
+        <>
+          <h2 className="pr-h2">
+            {secPhotos}. 現場写真（{gallery.length}枚
+            {photoOmitted > 0 ? `／全${allPhotos.length}枚` : ""}）
+          </h2>
+          <p className="pr-foot-note">
+            各項目に添付した写真。並び順は ×→△→○ の優先度。
+          </p>
+          <div className="pr-photos">
+            {gallery.map(({ pid, category, caption, judgement }) => (
+              <PhotoCell
+                key={pid}
+                url={urls.get(pid)}
+                judgement={judgement}
+                category={category}
+                caption={caption}
+              />
+            ))}
+          </div>
+          {photoOmitted > 0 && (
+            <p className="pr-omit">
+              ほか{photoOmitted}枚はアプリの各項目で確認してください。
+            </p>
+          )}
+        </>
+      )}
+
+      {/* 前回比較 */}
       {previous && prevS && (
         <>
-          <h2 className="pr-h2">2. 前回（{previous.date}）との比較</h2>
+          <h2 className="pr-h2">
+            {secPrevious}. 前回（{previous.date}）との比較
+          </h2>
           <table className="pr-table">
             <thead>
               <tr>
@@ -484,10 +501,10 @@ export function StoreReport({
         </>
       )}
 
-      {/* 3. 要改善（写真主体のカード。写真の下に詳細をテキストで置く）
+      {/* 要改善（写真主体のカード。写真の下に詳細をテキストで置く）
           1ページ8枚（2列×4段）に揃えるため、必ずページの頭から始める */}
       <h2 className="pr-h2 pr-h2-break">
-        {previous ? "3" : "2"}. 要改善（×と△／{allIssues.length}件
+        {secIssues}. 要改善（×と△／{allIssues.length}件
         {omitted > 0 ? `　※重要度の高い${issues.length}件を掲載` : ""}）
       </h2>
       {allIssues.length === 0 ? (
@@ -581,34 +598,6 @@ export function StoreReport({
           全件はアプリの「要改善」またはCSV書き出しで確認してください。
         </p>
       )}
-      {photoOmitted > 0 && (
-        <p className="pr-omit">
-          写真ほか{photoOmitted}枚はアプリの各項目で確認してください。
-        </p>
-      )}
-
-      {refPhotos.length > 0 && (
-        <>
-          <h2 className="pr-h2">
-            {previous ? "4" : "3"}. そのほかの写真（{refPhotos.length}枚）
-          </h2>
-          <p className="pr-foot-note">
-            カテゴリ単位で撮った写真と、上のカードに載らなかった項目の写真。
-          </p>
-          <div className="pr-photos">
-            {refPhotos.map(({ pid, caption, judgement, note }) => (
-              <PhotoCell
-                key={pid}
-                url={urls.get(pid)}
-                judgement={judgement}
-                caption={caption}
-                note={note}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
       <p className="pr-foot-note">
         判定基準：○=基準を満たす／△=やってはいるが不十分・人によって差がある／×=できていない、または基準そのものが存在しない／対象外=その店舗に該当しない。
         合格ライン 80%以上=緑／60〜79%=黄／60%未満=赤。ただしS項目に×が1件でもあれば総合何%でも赤。

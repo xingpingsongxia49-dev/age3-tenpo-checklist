@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CategoryPhotos } from "./CategoryPhotos";
 import { ItemRow } from "./ItemRow";
 import { Bar, Card, JUDGEMENT_COLOR, JUDGEMENT_ICON, Notice, WarningBand } from "./ui";
 import { CATEGORIES } from "@/lib/checklist";
@@ -298,13 +297,6 @@ export function StorePanel({ store }: { store: StoreName }) {
                   />
                 ))}
               </ul>
-
-              {/* カテゴリ見出し → 項目リスト → 写真欄 → 次のカテゴリ の並び */}
-              <CategoryPhotos
-                inspectionId={inspection.id}
-                category={cat}
-                photos={inspection.categoryPhotos?.[cat] ?? []}
-              />
             </section>
           );
         })}

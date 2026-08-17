@@ -1,35 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { usePhotoUrl, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import { compareJudgement, isFixed } from "@/lib/score";
 import type { Answer, ChecklistItem, Judgement } from "@/lib/types";
+import { ItemPhotos } from "./ItemPhotos";
 import { ChangeBadge, JUDGEMENT_COLOR, JUDGEMENT_ICON, WeightBadge } from "./ui";
 
 const JUDGEMENTS: Judgement[] = ["○", "△", "×", "対象外"];
-
-function Thumb({ photoId, onRemove }: { photoId: string; onRemove: () => void }) {
-  const url = usePhotoUrl(photoId);
-  return (
-    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-chip-bg)]">
-      {url && (
-        <a href={url} target="_blank" rel="noreferrer">
-          {/* 端末内の写真をそのまま出すだけなので next/image は使わない */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt="現場写真" className="h-full w-full object-cover" />
-        </a>
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="この写真を削除"
-        className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center bg-black/55 text-[11px] font-bold text-white"
-      >
-        ✕
-      </button>
-    </div>
-  );
-}
 
 export function ItemRow({
   item,
@@ -47,7 +25,7 @@ export function ItemRow({
   /** 今回を含めて何回連続で×か。2以上なら現場ではなく基準の問題を疑う */
   streak?: number;
 }) {
-  const { updateAnswer, removePhoto } = useStore();
+  const { updateAnswer } = useStore();
   const [openNote, setOpenNote] = useState(false);
 
   const patch = (p: Partial<Answer>) => updateAnswer(inspectionId, item.id, p);
@@ -126,8 +104,14 @@ export function ItemRow({
         })}
       </div>
 
-      {/* 写真はカテゴリ単位（項目リストの直後の写真欄）に集約した。
-          ここではメモだけを扱う。 */}
+      {/* 判定ボタンの直下に、この項目専用の写真欄を置く。
+          どの項目の証拠写真かが1対1で分かるようにするため */}
+      <ItemPhotos
+        inspectionId={inspectionId}
+        itemId={item.id}
+        photos={answer.photos}
+      />
+
       {!showNote && (
         <div className="mt-2">
           <button
@@ -137,24 +121,6 @@ export function ItemRow({
           >
             ＋ メモ
           </button>
-        </div>
-      )}
-
-      {/* 項目に直接付けた写真は旧仕様のもの。消せるようにここに残す */}
-      {answer.photos.length > 0 && (
-        <div className="mt-2">
-          <p className="mb-1 text-[11px] text-[var(--color-sub)]">
-            この項目に直接付けた写真（{answer.photos.length}枚）
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {answer.photos.map((pid) => (
-              <Thumb
-                key={pid}
-                photoId={pid}
-                onRemove={() => void removePhoto(inspectionId, item.id, pid)}
-              />
-            ))}
-          </div>
         </div>
       )}
 
