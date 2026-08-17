@@ -14,6 +14,9 @@ import {
 } from "@/lib/score";
 import { correctionsCsv, download, historyCsv } from "@/lib/export";
 import { todayISO, useStore } from "@/lib/store";
+import { AllStoresReport } from "./PrintReport";
+import { usePrint } from "@/lib/usePrint";
+import { PrintPortal } from "./PrintPortal";
 import type { StoreName } from "@/lib/types";
 
 const STATUS_INK: Record<Correction["status"], string> = {
@@ -34,6 +37,7 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
   const [showDone, setShowDone] = useState(false);
   const [msg, setMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const { printing, print } = usePrint();
   const today = todayISO();
 
   if (!ready) {
@@ -116,6 +120,13 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
             );
           })}
         </ul>
+
+        <button type="button" className="btn btn-primary mt-4 w-full" onClick={print}>
+          全店PDF報告書を作る
+        </button>
+        <p className="mt-1 text-[11px] text-[var(--color-sub)]">
+          3店比較・カテゴリ別比較・是正台帳・視察履歴をA4の帳票にまとめて出します。
+        </p>
       </Card>
 
       {/* 是正管理台帳 */}
@@ -370,6 +381,12 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
           Androidはメニュー →「アプリをインストール」。追加しておけば電波が弱くてもオフラインで開けます。
         </p>
       </Card>
+
+      {printing && (
+        <PrintPortal>
+          <AllStoresReport all={data.inspections} issuedOn={today} />
+        </PrintPortal>
+      )}
     </div>
   );
 }

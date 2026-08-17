@@ -34,11 +34,20 @@
 }
 
 html {
+  /* 先頭は指定どおり。末尾の日本語ゴシックは、Apple以外の端末で
+     中国語フォント（WenQuanYi等）に落ちて漢字が中国語字形になるのを防ぐための保険。
+     明朝は一切入れない。 */
   font-family:
     -apple-system,
     BlinkMacSystemFont,
     "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
     "Noto Sans JP",
+    "Noto Sans CJK JP",
+    "Yu Gothic",
+    YuGothic,
+    Meiryo,
+    IPAPGothic,
     sans-serif;
   -webkit-text-size-adjust: 100%;
 }
@@ -142,4 +151,331 @@ textarea {
   .no-print {
     display: none !important;
   }
+}
+
+/* ==================================================================
+ * 報告書（A4）。画面には出さず、印刷＝PDF保存のときだけ表示する。
+ * ブラウザの「PDFとして保存」を使うので文字が選択でき、
+ * 日本語フォントを埋め込む必要がない（端末のゴシック体をそのまま使う）。
+ * ================================================================== */
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm 10mm 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  /* 画面用UIは全部隠し、報告書だけを出す */
+  .app-shell {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* 背景色・バーが印刷でも出るようにする */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+.pr-doc {
+  /* 先頭は指定どおり。末尾の日本語ゴシックは、Apple以外の端末で
+     中国語フォント（WenQuanYi等）に落ちて漢字が中国語字形になるのを防ぐための保険。
+     明朝は一切入れない。 */
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP",
+    "Noto Sans CJK JP",
+    "Yu Gothic",
+    YuGothic,
+    Meiryo,
+    IPAPGothic,
+    sans-serif;
+  color: #111;
+  font-size: 9pt;
+  line-height: 1.5;
+}
+
+.pr-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 8mm;
+  border-bottom: 2px solid #3e2c23;
+  padding-bottom: 2mm;
+  margin-bottom: 4mm;
+}
+
+.pr-brand {
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #8a6d22;
+}
+
+.pr-head h1 {
+  font-size: 15pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pr-head-sub {
+  margin-left: auto;
+  font-size: 8pt;
+  color: #666;
+}
+
+.pr-meta {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 4mm;
+  font-size: 8.5pt;
+}
+
+.pr-meta th,
+.pr-meta td {
+  border: 0.5pt solid #ccc;
+  padding: 1.4mm 2mm;
+  text-align: left;
+}
+
+.pr-meta th {
+  background: #f5f1ec;
+  font-weight: 700;
+  white-space: nowrap;
+  width: 18mm;
+}
+
+.pr-score {
+  display: flex;
+  gap: 5mm;
+  align-items: stretch;
+  margin-bottom: 4mm;
+  page-break-inside: avoid;
+}
+
+.pr-score-main {
+  border: 1pt solid #3e2c23;
+  border-radius: 2mm;
+  padding: 3mm 4mm;
+  min-width: 52mm;
+  text-align: center;
+}
+
+.pr-label {
+  font-size: 8pt;
+  color: #666;
+}
+
+.pr-score-value {
+  font-size: 30pt;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.pr-verdict {
+  font-size: 10pt;
+  font-weight: 700;
+}
+
+.pr-note {
+  font-size: 8pt;
+  color: #666;
+  margin-top: 1mm;
+}
+
+.pr-kpi {
+  flex: 1;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.pr-kpi th,
+.pr-kpi td {
+  border: 0.5pt solid #ccc;
+  padding: 1.4mm 2mm;
+  text-align: left;
+}
+
+.pr-kpi th {
+  background: #f5f1ec;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pr-kpi td {
+  font-weight: 700;
+}
+
+.pr-kpi td span {
+  margin-right: 3mm;
+}
+
+.pr-alert {
+  border: 1pt solid #a33a2e;
+  background: #fbeeec;
+  color: #a33a2e;
+  font-weight: 700;
+  border-radius: 2mm;
+  padding: 2.5mm 3mm;
+  margin-bottom: 4mm;
+  font-size: 9pt;
+  page-break-inside: avoid;
+}
+
+.pr-h2 {
+  font-size: 10.5pt;
+  font-weight: 700;
+  border-left: 1.4mm solid #3e2c23;
+  padding-left: 2mm;
+  margin: 5mm 0 2mm;
+  page-break-after: avoid;
+}
+
+.pr-break {
+  page-break-before: always;
+}
+
+.pr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.pr-table th,
+.pr-table td {
+  border: 0.5pt solid #ccc;
+  padding: 1.2mm 1.6mm;
+  vertical-align: top;
+  text-align: left;
+}
+
+.pr-table thead th {
+  background: #3e2c23;
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pr-table tbody tr {
+  page-break-inside: avoid;
+}
+
+.pr-table tbody tr:nth-child(even) {
+  background: #faf8f6;
+}
+
+.pr-table .pr-group td {
+  background: #ece5dd;
+  font-weight: 700;
+}
+
+.pr-table-sm {
+  font-size: 7.5pt;
+}
+
+/* 列幅。印刷で折り返しが暴れないよう固定気味にする */
+.w-cat { width: 34mm; }
+.w-cat2 { width: 28mm; }
+.w-num { width: 8mm; text-align: center !important; }
+.w-rate { width: 14mm; text-align: right !important; white-space: nowrap; }
+.w-bar { width: 26mm; }
+.w-j { width: 11mm; text-align: center !important; white-space: nowrap; }
+.w-w { width: 10mm; text-align: center !important; font-weight: 700; }
+.w-own { width: 16mm; }
+.w-due { width: 18mm; white-space: nowrap; }
+.w-no { width: 7mm; text-align: center !important; }
+.w-note { width: 40mm; }
+.w-store { width: 12mm; }
+
+.pr-bar {
+  height: 2.2mm;
+  background: #efe9e3;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 1mm;
+}
+
+.pr-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6b4e3a, #3e2c23);
+}
+
+.pr-item-text {
+  display: block;
+}
+
+.pr-fact {
+  display: block;
+  color: #555;
+  font-size: 7.5pt;
+  margin-top: 0.6mm;
+}
+
+.pr-worse {
+  display: inline-block;
+  margin-top: 0.6mm;
+  border: 0.5pt solid #a33a2e;
+  color: #a33a2e;
+  border-radius: 999px;
+  padding: 0 1.4mm;
+  font-size: 7pt;
+  font-weight: 700;
+}
+
+.pr-empty {
+  font-size: 9pt;
+  color: #666;
+  padding: 2mm 0;
+}
+
+.pr-foot-note {
+  font-size: 7.5pt;
+  color: #666;
+  margin-top: 2mm;
+  line-height: 1.6;
+}
+
+.pr-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4mm;
+}
+
+.pr-photo {
+  width: 56mm;
+  page-break-inside: avoid;
+}
+
+.pr-photo img {
+  width: 100%;
+  height: 42mm;
+  object-fit: cover;
+  border: 0.5pt solid #ccc;
+  border-radius: 1.5mm;
+}
+
+.pr-photo figcaption {
+  font-size: 7pt;
+  color: #555;
+  margin-top: 1mm;
+  line-height: 1.4;
 }

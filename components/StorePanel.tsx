@@ -17,7 +17,10 @@ import {
 } from "@/lib/score";
 import { copyText, reportText } from "@/lib/export";
 import { shareReportImage } from "@/lib/image";
-import { useStore } from "@/lib/store";
+import { StoreReport } from "./PrintReport";
+import { usePrint } from "@/lib/usePrint";
+import { PrintPortal } from "./PrintPortal";
+import { todayISO, useStore } from "@/lib/store";
 import { EMPTY_ANSWER, type StoreName } from "@/lib/types";
 
 type Filter = "all" | "todo" | "issue";
@@ -27,6 +30,7 @@ export function StorePanel({ store }: { store: StoreName }) {
   const inspection = useEnsureTodayInspection(store);
   const [filter, setFilter] = useState<Filter>("all");
   const [flash, setFlash] = useState("");
+  const { printing, print } = usePrint();
 
   const previous = useMemo(
     () => (inspection ? findPrevious(data.inspections, inspection) : undefined),
@@ -298,6 +302,13 @@ export function StorePanel({ store }: { store: StoreName }) {
         <button
           type="button"
           className="btn"
+          onClick={print}
+        >
+          PDF報告書を作る
+        </button>
+        <button
+          type="button"
+          className="btn"
           onClick={() => {
             const todo = items.filter((i) => answerOf(inspection, i.id).judgement === null);
             if (todo.length === 0) return say("未入力の項目はありません");
@@ -334,6 +345,16 @@ export function StorePanel({ store }: { store: StoreName }) {
         <p className="mt-2 text-center text-[13px] font-bold text-[var(--color-brown2)]">
           {flash}
         </p>
+      )}
+
+      {printing && (
+        <PrintPortal>
+          <StoreReport
+            inspection={inspection}
+            all={data.inspections}
+            issuedOn={todayISO()}
+          />
+        </PrintPortal>
       )}
     </Card>
   );

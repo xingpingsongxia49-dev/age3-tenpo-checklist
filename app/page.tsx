@@ -12,7 +12,7 @@ function App() {
   const [tab, setTab] = useTabParam();
 
   return (
-    <div className="container-app">
+    <div className="container-app app-shell">
       <header className="pb-4 pt-2 text-center">
         <h1
           className="text-[21px] font-bold text-white"
