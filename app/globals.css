@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/*
+ * 配色の原則（明るい店内でスマホ片手操作する前提）
+ * - 背景は白、文字は黒。暗い背景は店内で見えなくなるため使わない。
+ * - ゴールドはヘッダーとボタンのアクセントのみ。面で塗らない。
+ * - 判定は 〇=緑 / △=黄 / ×=赤 / 対象外=グレー。色に加えて必ずアイコンでも区別する。
+ */
+@theme {
+  --color-gold: #c9a227;
+  --color-gold-dark: #a5851d;
+  --color-gold-soft: #faf4e2;
+
+  --color-ok: #15803d;
+  --color-ok-soft: #e8f6ec;
+  --color-warn: #a16207;
+  --color-warn-soft: #fdf4d7;
+  --color-ng: #b91c1c;
+  --color-ng-soft: #fdeaea;
+  --color-na: #57534e;
+  --color-na-soft: #f0efee;
+
+  --color-ink: #111111;
+  --color-ink-sub: #4b4b4b;
+  --color-line: #e0ddd6;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  /* 明朝は使わない。ゴシック体を必ず先に当てる */
+  font-family:
+    system-ui,
+    -apple-system,
+    "Hiragino Kaku Gothic ProN",
+    "Noto Sans CJK JP",
+    "Noto Sans JP",
+    "Yu Gothic",
+    Meiryo,
+    sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+  overscroll-behavior-y: none;
+}
+
+/* 片手操作でタップを外さないよう、押せるものは最低44pxを確保する */
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px; /* iOSで入力時に画面が拡大するのを防ぐ */
+}
+
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
