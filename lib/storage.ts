@@ -5,6 +5,7 @@
  * 入れ替えるだけで済むよう、外向きの API は全て非同期にしてある。
  */
 
+import { createSupabaseStorage, isSupabaseConfigured } from "./storage-supabase";
 import type { AppData } from "./types";
 import { EMPTY_APP_DATA } from "./types";
 
@@ -109,7 +110,7 @@ function normalize(raw: unknown): AppData {
 /* 端末内実装                                                          */
 /* ------------------------------------------------------------------ */
 
-const localStorageBacked: Storage = {
+export const localStorageBacked: Storage = {
   async loadAll() {
     if (typeof window === "undefined") return { ...EMPTY_APP_DATA };
     try {
@@ -218,7 +219,15 @@ const localStorageBacked: Storage = {
   },
 };
 
-export const storage: Storage = localStorageBacked;
+/**
+ * 実際に使う保存先。
+ * NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY が両方あるときだけ
+ * クラウド版に切り替わる。未設定なら従来どおり端末内だけで完結する。
+ * 画面側は storage しか参照していないので、差し替えはここ1か所で済む。
+ */
+export const storage: Storage = isSupabaseConfigured
+  ? createSupabaseStorage(localStorageBacked)
+  : localStorageBacked;
 
 /* ------------------------------------------------------------------ */
 /* 写真の前処理（そのまま保存すると1枚数MBで容量を食い潰す）           */

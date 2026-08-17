@@ -27,6 +27,10 @@ UIは既存のAge.3アプリ（新商品チェックリスト）と同じトー�
 - **PDF報告書** — 本編は**A4 最大2枚**（要約・カテゴリ別の表と達成度バー・前回比較・要改善一覧）。
   付けた写真は本編の後ろに写真ページとして続く。内容が少なければ1枚で終わる。
   ブラウザの「PDFとして保存」を使うので文字が選択でき、ファイルも軽い
+- **連続×の可視化** — 同じ項目が2回以上続けて×なら「◯回連続×」を出す。
+  毎回同じ×が並ぶ項目は現場の能力ではなく基準が無いことが原因なので、本部側の宿題として扱う
+- **前回×の確認漏れ警告** — 前回×だったのに今回まだ未入力の項目を警告し、絞り込みで飛べる
+- **期限アラート** — 期限切れ／3日以内／期限未記入を全店横断で集計し、どのタブにいても見える位置に出す
 - **まとめタブ** — 3店の進捗バー比較、全店PDF報告書、是正管理台帳、視察履歴、JSONバックアップ
 - **オフライン動作** — PWA。ホーム画面に追加すれば電波が弱くても開ける
 
@@ -141,7 +145,8 @@ Next.js 15（App Router）＋ React 19 ＋ Tailwind CSS v4。サーバー処理�
 | `lib/checklist.ts` | チェック項目75件のマスタ。項目の追加・修正はここだけ直す |
 | `lib/types.ts` | 型定義 |
 | `lib/score.ts` | 加重スコア・判定・前回比較・是正台帳の集計 |
-| `lib/storage.ts` | **永続化はこの1ファイルに集約**。localStorage / IndexedDB を触るのはここだけ |
+| `lib/storage.ts` | **永続化の集約点**。localStorage / IndexedDB を触るのはここだけ。保存先の選択もここ |
+| `lib/storage-supabase.ts` | クラウド共有版の保存先（環境変数があるときだけ使われる） |
 | `lib/store.tsx` | 画面から使う状態管理（storage.ts の上に乗る） |
 | `lib/export.ts` | CSV／LINE用テキストの生成 |
 | `lib/image.ts` | 結果を1枚の画像にする（canvasに直接描画。外部ライブラリなし） |
@@ -150,13 +155,36 @@ Next.js 15（App Router）＋ React 19 ＋ Tailwind CSS v4。サーバー処理�
 | `app/page.tsx` | 画面本体（店舗チップ＋店舗カード＋まとめ） |
 | `components/` | StoreChips／StorePanel／SummaryPanel／ItemRow／ui |
 
-### Supabase などに差し替えるとき
+### クラウド共有（Supabase）
+
+既定は端末内保存だが、環境変数を入れると Supabase に切り替わる。
+**未設定なら何も変わらない**ので、共有が必要になった時点で設定すればよい。
+設定手順とSQLは [`docs/supabase.md`](docs/supabase.md) にある。
+
+| 変数 | 用途 |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public キー |
+| `NEXT_PUBLIC_SUPABASE_ROW_ID` | 省略可。既定 `age3-tenpo-checklist` |
+
+動き方は「端末内が正、そのうえでクラウドへ写す」。電波が無い店舗でも入力は止まらず、
+クラウドが落ちていてもアプリは動く。起動時はクラウドを優先して読み、失敗したら端末内で動く。
+
+`@supabase/supabase-js` は静的 import していない。未設定の端末に配らないよう、
+実際にクラウドへ行くときだけ動的に読み込む（別チャンクになる）。
+
+**制約**：最後に保存した端末の内容で上書きされる。2人が同時に別々の店舗を入力すると
+後勝ちになる。3店を1人で回る運用なら問題ないが、同時入力を始めるなら
+店舗ごとに行を分けるか、項目単位の保存に作り変える必要がある。
+
+### 保存先を別のものに差し替えるとき
 
 UI からは localStorage / IndexedDB を一切触っていない。`lib/storage.ts` の
 `Storage` インターフェース（`loadAll` / `saveAll` / `putPhoto` / `getPhoto` /
 `deletePhoto` / `exportBundle` / `importBundle` / `clearAll` / `usageBytes`）を
-別の実装に差し替え、末尾の `export const storage` をそちらに向ければ、
-画面側の変更なしにクラウド共有へ移行できる。全て非同期で定義してある。
+実装した別モジュールを作り、`export const storage` の分岐に足せばよい。
+Supabase 版（`lib/storage-supabase.ts`）がその実例で、端末内実装を引数で受け取って
+上にかぶせる形にしてある（依存を一方向にして循環参照を避けるため）。
 
 ## デプロイ（Vercel）
 
