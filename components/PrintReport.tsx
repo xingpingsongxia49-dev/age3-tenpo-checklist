@@ -1,19 +1,21 @@
 "use client";
 
 /**
- * A4 1枚に収める報告書。画面には出さず、印刷（＝PDFとして保存）のときだけ表示する。
+ * A4 最大2枚の報告書。画面には出さず、印刷（＝PDFとして保存）のときだけ表示する。
  * ブラウザの「PDFとして保存」を使うので、文字が選択できる軽いPDFになり、
  * 日本語フォントを埋め込む必要もない（端末のゴシック体をそのまま使う）。
  *
- * 1枚に収めるため、行数の上限と各行の高さを固定してある。
+ * 中身が少なければ1枚で終わる。多いときも2枚に収まるよう行数の上限を設けており、
  * 溢れた分は件数を明記して落とす（黙って切ると「全部載っている」と誤読されるため）。
  */
 
+import { usePhotoUrl } from "@/lib/store";
 import {
   answerOf,
   collectCorrections,
   compareJudgement,
   findPrevious,
+  hasAnswers,
   isFixed,
   itemsForStore,
   pct,
@@ -26,12 +28,19 @@ import type { Answer, ChecklistItem, Inspection } from "@/lib/types";
 
 const INK = { ok: "#2F6B46", mid: "#8A6D22", ng: "#A33A2E", na: "#8A7A6D" };
 
-/** 1枚に確実に収まる要改善の行数。これを超えた分は件数だけ出す */
-const MAX_ISSUE_ROWS = 12;
-const MAX_LEDGER_ROWS = 12;
+/** 2枚に収まる上限。超えた分は件数だけ明記して落とす */
+const MAX_ISSUE_ROWS = 15;
+const MAX_PHOTOS = 3;
+const MAX_LEDGER_ROWS = 16;
+const MAX_HISTORY_ROWS = 8;
 
 function verdictInk(v: Summary["verdict"]) {
   return v === "green" ? INK.ok : v === "yellow" ? INK.mid : v === "red" ? INK.ng : INK.na;
+}
+
+function signed(v: number, digits = 0) {
+  const sign = v > 0 ? "＋" : v < 0 ? "−" : "±";
+  return `${sign}${pct(Math.abs(v), digits)}`;
 }
 
 function RowBar({ rate }: { rate: number | null }) {
@@ -42,33 +51,27 @@ function RowBar({ rate }: { rate: number | null }) {
   );
 }
 
-function Head({
-  title,
-  meta,
-  issuedOn,
-}: {
-  title: string;
-  meta: string;
-  issuedOn: string;
-}) {
+function Head({ title, meta, issuedOn }: { title: string; meta: string; issuedOn: string }) {
   return (
-    <div className="pr-head">
+    <header className="pr-head">
       <p className="pr-brand">Age.3</p>
       <h1>{title}</h1>
       <p className="pr-head-meta">{meta}</p>
       <p className="pr-head-sub">出力日 {issuedOn}</p>
-    </div>
+    </header>
   );
 }
 
 function Kpi({
   label,
   value,
+  unit,
   alert,
   ink,
 }: {
   label: string;
   value: string;
+  unit?: string;
   alert?: boolean;
   ink?: string;
 }) {
@@ -77,13 +80,26 @@ function Kpi({
       <span className="pr-kpi-label">{label}</span>
       <span className="pr-kpi-value" style={{ color: ink }}>
         {value}
+        {unit && <span className="pr-kpi-unit">{unit}</span>}
       </span>
     </div>
   );
 }
 
+function PhotoCell({ photoId, caption }: { photoId: string; caption: string }) {
+  const url = usePhotoUrl(photoId);
+  return (
+    <figure className="pr-photo">
+      {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {url && <img src={url} alt={caption} />}
+      <figcaption>{caption}</figcaption>
+    </figure>
+  );
+}
+
 /* ------------------------------------------------------------------ */
-/* 店舗レポート（A4 1枚）                                              */
+/* 店舗レポート                                                        */
 /* ------------------------------------------------------------------ */
 
 export function StoreReport({
@@ -110,7 +126,12 @@ export function StoreReport({
     .map((item) => {
       const a = answerOf(inspection, item.id);
       const pj = previous?.answers[item.id]?.judgement ?? null;
-      return { item, a, worsened: compareJudgement(pj, a.judgement) === "worsened" };
+      return {
+        item,
+        a,
+        prevJudgement: pj,
+        worsened: compareJudgement(pj, a.judgement) === "worsened",
+      };
     })
     .filter(({ a }) => a.judgement === "×" || a.judgement === "△")
     .sort(
@@ -123,15 +144,21 @@ export function StoreReport({
   const issues = allIssues.slice(0, MAX_ISSUE_ROWS);
   const omitted = allIssues.length - issues.length;
 
-  const fixedCount = previous
+  const fixedItems = previous
     ? items.filter((i) =>
         isFixed(previous.answers[i.id]?.judgement ?? null, answerOf(inspection, i.id).judgement),
-      ).length
-    : 0;
+      )
+    : [];
   const worsenedCount = allIssues.filter((r) => r.worsened).length;
 
+  const photos = allIssues
+    .flatMap(({ item, a }) => a.photos.map((pid, i) => ({ pid, item, index: i, total: a.photos.length })))
+    .slice(0, MAX_PHOTOS);
+  const photoOmitted =
+    allIssues.reduce((n, { a }) => n + a.photos.length, 0) - photos.length;
+
   return (
-    <div className="pr-doc pr-a4">
+    <div className="pr-doc pr-sheet">
       <Head
         title="店舗チェック報告書"
         meta={`${inspection.store}　${inspection.date}　視察者：${inspection.inspector || "—"}`}
@@ -140,7 +167,7 @@ export function StoreReport({
 
       {/* 要約 */}
       <div className="pr-summary">
-        <div className="pr-score-main">
+        <div className="pr-score-main" style={{ borderColor: verdictInk(s.verdict) }}>
           <span className="pr-label">総合スコア（加重達成率）</span>
           <span className="pr-score-value" style={{ color: verdictInk(s.verdict) }}>
             {pct(s.weightedRate)}
@@ -148,51 +175,44 @@ export function StoreReport({
           <span className="pr-verdict" style={{ color: verdictInk(s.verdict) }}>
             {VERDICT_LABEL[s.verdict]}
           </span>
+          {diff !== null && (
+            <span className="pr-note">
+              前回比 {signed(diff, 1)}（前回 {pct(prevS?.weightedRate ?? null)}）
+            </span>
+          )}
         </div>
+
         <div className="pr-kpi-grid">
-          <Kpi label="○" value={`${s.maru}`} ink={INK.ok} />
-          <Kpi label="△" value={`${s.sankaku}`} ink={INK.mid} />
-          <Kpi label="×" value={`${s.batsu}`} ink={INK.ng} />
-          <Kpi label="対象外" value={`${s.excluded}`} ink={INK.na} />
-          <Kpi label="未入力" value={`${s.unanswered}`} alert={s.unanswered > 0} />
+          <Kpi label="○ 基準を満たす" value={`${s.maru}`} unit="件" ink={INK.ok} />
+          <Kpi label="△ 不十分・差がある" value={`${s.sankaku}`} unit="件" ink={INK.mid} />
+          <Kpi label="× できていない" value={`${s.batsu}`} unit="件" ink={INK.ng} />
+          <Kpi label="対象外" value={`${s.excluded}`} unit="件" ink={INK.na} />
           <Kpi
-            label="S項目の×"
+            label="S項目の×（即日是正）"
             value={`${s.criticalBatsu}`}
+            unit="件"
             alert={s.criticalBatsu > 0}
             ink={s.criticalBatsu > 0 ? INK.ng : undefined}
           />
           <Kpi
             label="是正未完了"
             value={`${s.openCorrections}`}
+            unit="件"
             alert={s.openCorrections > 0}
             ink={s.openCorrections > 0 ? INK.ng : undefined}
           />
           <Kpi
-            label="期限未記入"
+            label="担当・期限が未記入の×"
             value={`${s.missingDue}`}
+            unit="件"
             alert={s.missingDue > 0}
             ink={s.missingDue > 0 ? INK.ng : undefined}
           />
-          <Kpi label="前回スコア" value={pct(prevS?.weightedRate ?? null)} />
           <Kpi
-            label="前回比"
-            value={
-              diff === null
-                ? "—"
-                : `${diff > 0 ? "＋" : diff < 0 ? "−" : "±"}${pct(Math.abs(diff), 1)}`
-            }
-            ink={diff === null ? undefined : diff > 0 ? INK.ok : diff < 0 ? INK.ng : undefined}
-          />
-          <Kpi
-            label="是正済み"
-            value={previous ? `${fixedCount}` : "—"}
-            ink={fixedCount > 0 ? INK.ok : undefined}
-          />
-          <Kpi
-            label="悪化"
-            value={previous ? `${worsenedCount}` : "—"}
-            alert={worsenedCount > 0}
-            ink={worsenedCount > 0 ? INK.ng : undefined}
+            label="未入力"
+            value={`${s.unanswered}`}
+            unit={`/${s.total}件`}
+            alert={s.unanswered > 0}
           />
         </div>
       </div>
@@ -203,9 +223,15 @@ export function StoreReport({
           他を中断して、その場で是正する。営業を止める判断も含めて検討する。
         </p>
       )}
+      {s.unanswered > 0 && (
+        <p className="pr-caution">
+          未入力が{s.unanswered}件あります。未入力は集計の分母から除外しているため、
+          このスコアは「見た範囲」の評価です。
+        </p>
+      )}
 
-      {/* カテゴリ別 */}
-      <h2 className="pr-h2">カテゴリ別 加重達成率</h2>
+      {/* 1. カテゴリ別 */}
+      <h2 className="pr-h2">1. カテゴリ別 加重達成率</h2>
       <table className="pr-table pr-cat">
         <thead>
           <tr>
@@ -217,7 +243,8 @@ export function StoreReport({
             <th className="w-num">対象外</th>
             <th className="w-rate">達成率</th>
             <th className="w-bar">達成度</th>
-            <th className="w-num">前回比</th>
+            <th className="w-rate">前回</th>
+            <th className="w-rate">前回比</th>
           </tr>
         </thead>
         <tbody>
@@ -234,27 +261,127 @@ export function StoreReport({
                   {c.batsu}
                 </td>
                 <td className="w-num">{c.excluded}</td>
-                <td className="w-rate">{pct(c.rate)}</td>
+                <td className="w-rate pr-strong">{pct(c.rate)}</td>
                 <td className="w-bar">
                   <RowBar rate={c.rate} />
                 </td>
+                <td className="w-rate">{pct(p)}</td>
                 <td
-                  className="w-num"
+                  className="w-rate"
                   style={{
                     color: d === null ? undefined : d > 0 ? INK.ok : d < 0 ? INK.ng : undefined,
                   }}
                 >
-                  {d === null ? "—" : `${d > 0 ? "＋" : d < 0 ? "−" : "±"}${pct(Math.abs(d))}`}
+                  {d === null ? "—" : signed(d)}
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      <p className="pr-foot-note">
+        加重達成率 ＝ Σ(重み×判定係数) ÷ Σ(重み)。重み S=5／A=3／B=1、判定 ○=1.0／△=0.5／×=0。対象外と未入力は分母から除外。
+      </p>
 
-      {/* 要改善 */}
+      {/* 2. 前回比較 */}
+      {previous && prevS && (
+        <>
+          <h2 className="pr-h2">2. 前回（{previous.date}）との比較</h2>
+          <table className="pr-table">
+            <thead>
+              <tr>
+                <th>指標</th>
+                <th className="w-rate">前回</th>
+                <th className="w-rate">今回</th>
+                <th className="w-rate">増減</th>
+                <th className="w-read">読み方</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>総合スコア（加重達成率）</td>
+                <td className="w-rate">{pct(prevS.weightedRate)}</td>
+                <td className="w-rate pr-strong">{pct(s.weightedRate)}</td>
+                <td
+                  className="w-rate pr-strong"
+                  style={{
+                    color:
+                      diff === null ? undefined : diff > 0 ? INK.ok : diff < 0 ? INK.ng : undefined,
+                  }}
+                >
+                  {diff === null ? "—" : signed(diff, 1)}
+                </td>
+                <td className="w-read">80%以上=緑／60〜79%=黄／60%未満=赤</td>
+              </tr>
+              <tr>
+                <td>×の件数</td>
+                <td className="w-rate">{prevS.batsu}</td>
+                <td className="w-rate pr-strong">{s.batsu}</td>
+                <td
+                  className="w-rate"
+                  style={{ color: s.batsu > prevS.batsu ? INK.ng : s.batsu < prevS.batsu ? INK.ok : undefined }}
+                >
+                  {s.batsu - prevS.batsu >= 0 ? "＋" : "−"}
+                  {Math.abs(s.batsu - prevS.batsu)}
+                </td>
+                <td className="w-read">増えていれば現場が回っていない</td>
+              </tr>
+              <tr>
+                <td>S項目の×（食品衛生・行政/近隣）</td>
+                <td className="w-rate">{prevS.criticalBatsu}</td>
+                <td className="w-rate pr-strong">{s.criticalBatsu}</td>
+                <td
+                  className="w-rate"
+                  style={{
+                    color:
+                      s.criticalBatsu > prevS.criticalBatsu
+                        ? INK.ng
+                        : s.criticalBatsu < prevS.criticalBatsu
+                          ? INK.ok
+                          : undefined,
+                  }}
+                >
+                  {s.criticalBatsu - prevS.criticalBatsu >= 0 ? "＋" : "−"}
+                  {Math.abs(s.criticalBatsu - prevS.criticalBatsu)}
+                </td>
+                <td className="w-read">1件でもあれば総合何%でも赤</td>
+              </tr>
+              <tr>
+                <td>是正済み（前回×→今回○か△）</td>
+                <td className="w-rate">—</td>
+                <td className="w-rate pr-strong" style={{ color: INK.ok }}>
+                  {fixedItems.length}
+                </td>
+                <td className="w-rate">—</td>
+                <td className="w-read">前回の指摘が実際に潰れた数</td>
+              </tr>
+              <tr>
+                <td>悪化（前回より判定が下がった）</td>
+                <td className="w-rate">—</td>
+                <td
+                  className="w-rate pr-strong"
+                  style={{ color: worsenedCount > 0 ? INK.ng : undefined }}
+                >
+                  {worsenedCount}
+                </td>
+                <td className="w-rate">—</td>
+                <td className="w-read">一度できたことが戻っている</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {fixedItems.length > 0 && (
+            <p className="pr-fixed">
+              <span className="pr-fixed-label">是正済み</span>
+              {fixedItems.map((i) => `${i.id}. ${i.text}`).join("／")}
+            </p>
+          )}
+        </>
+      )}
+
+      {/* 3. 要改善 */}
       <h2 className="pr-h2">
-        要改善（×と△／{allIssues.length}件
+        {previous ? "3" : "2"}. 要改善一覧（×と△／{allIssues.length}件
         {omitted > 0 ? `　※重要度の高い${issues.length}件を掲載` : ""}）
       </h2>
       {allIssues.length === 0 ? (
@@ -263,6 +390,7 @@ export function StoreReport({
         <table className="pr-table pr-issue">
           <thead>
             <tr>
+              <th className="w-no">No</th>
               <th className="w-j">判定</th>
               <th className="w-w">重要度</th>
               <th className="w-cat2">カテゴリ</th>
@@ -272,66 +400,79 @@ export function StoreReport({
             </tr>
           </thead>
           <tbody>
-            {issues.map(({ item, a, worsened }) => (
-              <IssueRow key={item.id} item={item} a={a} worsened={worsened} />
+            {issues.map(({ item, a, prevJudgement, worsened }) => (
+              <tr key={item.id}>
+                <td className="w-no">{item.id}</td>
+                <td
+                  className="w-j pr-strong"
+                  style={{ color: a.judgement === "×" ? INK.ng : INK.mid }}
+                >
+                  {a.judgement}
+                </td>
+                <td className="w-w" style={{ color: item.weight === "S" ? INK.ng : undefined }}>
+                  {item.weight}
+                </td>
+                <td className="w-cat2">{item.category}</td>
+                <td>
+                  <span className="pr-item-text">{item.text}</span>
+                  <span className="pr-fact">
+                    {a.note && <span className="pr-fact-text">事実：{a.note}</span>}
+                    {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
+                    {worsened && <span className="pr-tag is-ng">悪化</span>}
+                    {a.photos.length > 0 && <span className="pr-tag">写真{a.photos.length}枚</span>}
+                  </span>
+                </td>
+                <td className="w-own">
+                  {a.judgement === "×" ? (
+                    a.owner || <span style={{ color: INK.ng }}>未記入</span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="w-due">
+                  {a.judgement === "×" ? a.due || <span style={{ color: INK.ng }}>未記入</span> : "—"}
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
       )}
       {omitted > 0 && (
         <p className="pr-omit">
-          ほか{omitted}件は本紙に載せていません。全件はアプリの「要改善」またはCSV書き出しで確認してください。
+          ほか{omitted}件（△の重要度が低いもの）は本紙に載せていません。
+          全件はアプリの「要改善」またはCSV書き出しで確認してください。
         </p>
       )}
 
+      {/* 4. 現場写真 */}
+      {photos.length > 0 && (
+        <>
+          <h2 className="pr-h2">{previous ? "4" : "3"}. 現場写真</h2>
+          <div className="pr-photos">
+            {photos.map(({ pid, item, index, total }) => (
+              <PhotoCell
+                key={pid}
+                photoId={pid}
+                caption={`${item.id}. ${item.text}${total > 1 ? `（${index + 1}/${total}）` : ""}`}
+              />
+            ))}
+          </div>
+          {photoOmitted > 0 && (
+            <p className="pr-omit">ほか{photoOmitted}枚はアプリの各項目で確認してください。</p>
+          )}
+        </>
+      )}
+
       <p className="pr-foot-note">
-        加重達成率 ＝ Σ(重み×判定係数) ÷ Σ(重み)。重み S=5／A=3／B=1、判定 ○=1.0／△=0.5／×=0。対象外と未入力は分母から除外。
-        合格ライン 80%以上=緑／60〜79%=黄／60%未満=赤。ただしS項目に×があれば総合何%でも赤。
+        判定基準：○=基準を満たす／△=やってはいるが不十分・人によって差がある／×=できていない、または基準そのものが存在しない／対象外=その店舗に該当しない。
+        合格ライン 80%以上=緑／60〜79%=黄／60%未満=赤。ただしS項目に×が1件でもあれば総合何%でも赤。
       </p>
     </div>
   );
 }
 
-function IssueRow({
-  item,
-  a,
-  worsened,
-}: {
-  item: ChecklistItem;
-  a: Answer;
-  worsened: boolean;
-}) {
-  return (
-    <tr>
-      <td
-        className="w-j"
-        style={{ color: a.judgement === "×" ? INK.ng : INK.mid, fontWeight: 700 }}
-      >
-        {a.judgement}
-      </td>
-      <td className="w-w" style={{ color: item.weight === "S" ? INK.ng : undefined }}>
-        {item.weight}
-      </td>
-      <td className="w-cat2">
-        <span className="pr-clamp1">{item.category}</span>
-      </td>
-      <td>
-        <span className="pr-clamp1 pr-item-text">{item.text}</span>
-        {a.note && <span className="pr-clamp1 pr-fact">事実：{a.note}</span>}
-        {worsened && <span className="pr-worse">前回より悪化</span>}
-      </td>
-      <td className="w-own">
-        {a.judgement === "×" ? a.owner || <span style={{ color: INK.ng }}>未記入</span> : "—"}
-      </td>
-      <td className="w-due">
-        {a.judgement === "×" ? a.due || <span style={{ color: INK.ng }}>未記入</span> : "—"}
-      </td>
-    </tr>
-  );
-}
-
 /* ------------------------------------------------------------------ */
-/* 全店レポート（A4 1枚）                                              */
+/* 全店レポート                                                        */
 /* ------------------------------------------------------------------ */
 
 export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn: string }) {
@@ -345,12 +486,66 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
   const allCorrections = collectCorrections(all, issuedOn).filter((c) => c.status !== "完了");
   const corrections = allCorrections.slice(0, MAX_LEDGER_ROWS);
   const omitted = allCorrections.length - corrections.length;
+  const overdue = allCorrections.filter((c) => c.status === "期限切れ").length;
+
+  const history = all
+    .filter(hasAnswers)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  const historyRows = history.slice(0, MAX_HISTORY_ROWS);
+
+  const scored = latest.filter((l) => l.s?.weightedRate != null);
+  const avg =
+    scored.length > 0
+      ? scored.reduce((n, l) => n + (l.s!.weightedRate ?? 0), 0) / scored.length
+      : null;
+  const totalCritical = latest.reduce((n, l) => n + (l.s?.criticalBatsu ?? 0), 0);
 
   return (
-    <div className="pr-doc pr-a4">
+    <div className="pr-doc pr-sheet">
       <Head title="全店 店舗チェック報告書" meta="銀座・原宿・浅草" issuedOn={issuedOn} />
 
-      <h2 className="pr-h2">3店舗比較（各店の直近視察）</h2>
+      <div className="pr-summary">
+        <div className="pr-score-main">
+          <span className="pr-label">3店平均（加重達成率）</span>
+          <span className="pr-score-value" style={{ color: verdictInk(avg === null ? "none" : avg >= 0.8 ? "green" : avg >= 0.6 ? "yellow" : "red") }}>
+            {pct(avg)}
+          </span>
+          <span className="pr-note">直近視察の単純平均</span>
+        </div>
+        <div className="pr-kpi-grid">
+          {latest.map(({ store, s }) => (
+            <Kpi
+              key={store}
+              label={`${store}`}
+              value={s && s.weightedRate !== null ? pct(s.weightedRate) : "未実施"}
+              ink={s ? verdictInk(s.verdict) : undefined}
+            />
+          ))}
+          <Kpi
+            label="S項目の×（全店）"
+            value={`${totalCritical}`}
+            unit="件"
+            alert={totalCritical > 0}
+            ink={totalCritical > 0 ? INK.ng : undefined}
+          />
+          <Kpi
+            label="是正未完了（全店）"
+            value={`${allCorrections.length}`}
+            unit="件"
+            alert={allCorrections.length > 0}
+            ink={allCorrections.length > 0 ? INK.ng : undefined}
+          />
+          <Kpi
+            label="うち期限切れ"
+            value={`${overdue}`}
+            unit="件"
+            alert={overdue > 0}
+            ink={overdue > 0 ? INK.ng : undefined}
+          />
+        </div>
+      </div>
+
+      <h2 className="pr-h2">1. 3店舗比較（各店の直近視察）</h2>
       <table className="pr-table">
         <thead>
           <tr>
@@ -359,7 +554,7 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
             <th className="w-own">視察者</th>
             <th className="w-rate">総合スコア</th>
             <th className="w-bar">達成度</th>
-            <th className="w-num">S項目×</th>
+            <th className="w-num">S×</th>
             <th className="w-num">×</th>
             <th className="w-num">△</th>
             <th className="w-num">未入力</th>
@@ -369,15 +564,15 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
         <tbody>
           {latest.map(({ store, insp, s }) => (
             <tr key={store}>
-              <td className="w-store">{store}</td>
+              <td className="w-store pr-strong">{store}</td>
               <td className="w-due">{insp?.date ?? "—"}</td>
               <td className="w-own">{insp?.inspector || "—"}</td>
-              <td className="w-rate">{s ? pct(s.weightedRate) : "未実施"}</td>
+              <td className="w-rate pr-strong">{s ? pct(s.weightedRate) : "未実施"}</td>
               <td className="w-bar">
                 <RowBar rate={s?.weightedRate ?? null} />
               </td>
               <td
-                className="w-num"
+                className="w-num pr-strong"
                 style={{ color: (s?.criticalBatsu ?? 0) > 0 ? INK.ng : undefined }}
               >
                 {s?.criticalBatsu ?? "—"}
@@ -392,8 +587,12 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
           ))}
         </tbody>
       </table>
+      <p className="pr-foot-note">
+        3店を同じ基準で並べることで、「1店だけの問題」か「全社の問題」かを判別する。
+        全店で同じカテゴリが低い場合、原因は現場ではなく本部の基準づくりにある。
+      </p>
 
-      <h2 className="pr-h2">カテゴリ別 3店比較（加重達成率）</h2>
+      <h2 className="pr-h2">2. カテゴリ別 3店比較（加重達成率）</h2>
       <table className="pr-table pr-cat">
         <thead>
           <tr>
@@ -403,34 +602,43 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
                 {store}
               </th>
             ))}
+            <th className="w-rate">3店平均</th>
             <th className="w-bar3">達成度（銀座／原宿／浅草）</th>
           </tr>
         </thead>
         <tbody>
-          {CATEGORIES.map((cat) => (
-            <tr key={cat}>
-              <td className="w-cat">{cat}</td>
-              {latest.map(({ store, s }) => {
-                const c = s?.categories.find((x) => x.category === cat);
-                return (
-                  <td key={store} className="w-rate">
-                    {c ? pct(c.rate) : "—"}
+          {CATEGORIES.map((cat) => {
+            const rates = latest.map(
+              ({ s }) => s?.categories.find((x) => x.category === cat)?.rate ?? null,
+            );
+            const valid = rates.filter((r): r is number => r !== null);
+            const catAvg = valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
+            return (
+              <tr key={cat}>
+                <td className="w-cat">{cat}</td>
+                {rates.map((r, i) => (
+                  <td
+                    key={i}
+                    className="w-rate"
+                    style={{ color: r !== null && r < 0.6 ? INK.ng : undefined }}
+                  >
+                    {pct(r)}
                   </td>
-                );
-              })}
-              <td className="w-bar3">
-                {latest.map(({ store, s }) => {
-                  const c = s?.categories.find((x) => x.category === cat);
-                  return <RowBar key={store} rate={c?.rate ?? null} />;
-                })}
-              </td>
-            </tr>
-          ))}
+                ))}
+                <td className="w-rate pr-strong">{pct(catAvg)}</td>
+                <td className="w-bar3">
+                  {rates.map((r, i) => (
+                    <RowBar key={i} rate={r} />
+                  ))}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
       <h2 className="pr-h2">
-        是正管理台帳（未完了 {allCorrections.length}件
+        3. 是正管理台帳（未完了 {allCorrections.length}件
         {omitted > 0 ? `　※${corrections.length}件を掲載` : ""}）
       </h2>
       {allCorrections.length === 0 ? (
@@ -457,16 +665,16 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
                   {c.weight}
                 </td>
                 <td>
-                  <span className="pr-clamp1 pr-item-text">{c.text}</span>
-                  {c.note && <span className="pr-clamp1 pr-fact">事実：{c.note}</span>}
+                  <span className="pr-item-text">{c.text}</span>
+                  {c.note && <span className="pr-fact">事実：{c.note}</span>}
                 </td>
                 <td className="w-own">
                   {c.owner || <span style={{ color: INK.ng }}>未記入</span>}
                 </td>
                 <td className="w-due">{c.due || <span style={{ color: INK.ng }}>未記入</span>}</td>
                 <td
-                  className="w-own"
-                  style={{ color: c.status === "期限切れ" ? INK.ng : INK.mid, fontWeight: 700 }}
+                  className="w-own pr-strong"
+                  style={{ color: c.status === "期限切れ" ? INK.ng : INK.mid }}
                 >
                   {c.status}
                 </td>
@@ -481,9 +689,51 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
         </p>
       )}
 
+      <h2 className="pr-h2">
+        4. 視察履歴（{history.length}件
+        {history.length > historyRows.length ? `　※直近${historyRows.length}件を掲載` : ""}）
+      </h2>
+      <table className="pr-table pr-cat">
+        <thead>
+          <tr>
+            <th className="w-due">視察日</th>
+            <th className="w-store">店舗</th>
+            <th className="w-own">視察者</th>
+            <th className="w-rate">総合スコア</th>
+            <th className="w-bar">達成度</th>
+            <th className="w-num">S×</th>
+            <th className="w-num">×</th>
+            <th className="w-num">△</th>
+            <th className="w-num">未入力</th>
+          </tr>
+        </thead>
+        <tbody>
+          {historyRows.map((insp) => {
+            const s = summarize(insp);
+            return (
+              <tr key={insp.id}>
+                <td className="w-due">{insp.date}</td>
+                <td className="w-store">{insp.store}</td>
+                <td className="w-own">{insp.inspector || "—"}</td>
+                <td className="w-rate pr-strong">{pct(s.weightedRate)}</td>
+                <td className="w-bar">
+                  <RowBar rate={s.weightedRate} />
+                </td>
+                <td className="w-num" style={{ color: s.criticalBatsu > 0 ? INK.ng : undefined }}>
+                  {s.criticalBatsu}
+                </td>
+                <td className="w-num">{s.batsu}</td>
+                <td className="w-num">{s.sankaku}</td>
+                <td className="w-num">{s.unanswered}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
       <p className="pr-foot-note">
         加重達成率 ＝ Σ(重み×判定係数) ÷ Σ(重み)。重み S=5／A=3／B=1、判定 ○=1.0／△=0.5／×=0。
-        合格ライン 80%以上=緑／60〜79%=黄／60%未満=赤。ただしS項目に×があれば総合何%でも赤。
+        合格ライン 80%以上=緑／60〜79%=黄／60%未満=赤。ただしS項目に×が1件でもあれば総合何%でも赤。
       </p>
     </div>
   );
