@@ -40,6 +40,7 @@ type Ctx = {
     patch: Partial<Omit<Inspection, "id" | "answers">>,
   ) => void;
   deleteInspection: (id: string) => Promise<void>;
+  resetInspection: (id: string) => Promise<void>;
   addPhoto: (id: string, itemId: number, file: File) => Promise<void>;
   removePhoto: (id: string, itemId: number, photoId: string) => Promise<void>;
   exportBundle: (withPhotos: boolean) => Promise<string>;
@@ -161,6 +162,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [data.inspections, mutate],
   );
 
+  /** 入力を全部消す。写真の実体も消さないとIndexedDBに残り続ける */
+  const resetInspection = useCallback(
+    async (id: string) => {
+      const target = data.inspections.find((i) => i.id === id);
+      if (target) {
+        for (const a of Object.values(target.answers)) {
+          for (const pid of a.photos ?? []) await storage.deletePhoto(pid);
+        }
+      }
+      mutate((d) => ({
+        ...d,
+        inspections: d.inspections.map((insp) =>
+          insp.id !== id ? insp : { ...insp, answers: {}, updatedAt: stamp() },
+        ),
+      }));
+    },
+    [data.inspections, mutate],
+  );
+
   const addPhoto = useCallback(
     async (id: string, itemId: number, file: File) => {
       const blob = await compressImage(file);
@@ -235,6 +255,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateAnswer,
       updateInspection,
       deleteInspection,
+      resetInspection,
       addPhoto,
       removePhoto,
       exportBundle,
@@ -249,6 +270,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateAnswer,
       updateInspection,
       deleteInspection,
+      resetInspection,
       addPhoto,
       removePhoto,
       exportBundle,

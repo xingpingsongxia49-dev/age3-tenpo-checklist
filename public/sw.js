@@ -1,7 +1,7 @@
 // 電波の弱い店舗の裏や地下でも開けるようにするためのキャッシュ。
 // 入力データ本体は localStorage / IndexedDB にあり、ここでは扱わない。
-const CACHE = "age3-checklist-v1";
-const SHELL = ["/", "/check", "/issues", "/result", "/records", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
+const CACHE = "age3-checklist-v2";
+const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

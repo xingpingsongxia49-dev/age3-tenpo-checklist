@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
-import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
 
 export const metadata: Metadata = {
@@ -10,7 +9,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Age.3 チェック",
   },
 };
@@ -19,7 +18,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#c9a227",
+  themeColor: "#3E2C23",
   viewportFit: "cover",
 };
 
@@ -30,12 +29,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className="min-h-dvh bg-white text-[var(--color-ink)]">
+      <body>
         <StoreProvider>
-          <div className="mx-auto flex min-h-dvh w-full max-w-screen-sm flex-col">
-            <main className="flex-1 pb-24">{children}</main>
-            <BottomNav />
-          </div>
+          {children}
           <ServiceWorker />
         </StoreProvider>
       </body>

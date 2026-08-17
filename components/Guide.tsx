@@ -56,31 +56,31 @@ export function Guide() {
   const [open, setOpen] = useState(false);
 
   return (
-    <Card className="mt-3">
+    <Card>
       <button
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-3 text-left"
+        className="flex w-full items-center gap-2 text-left"
       >
-        <span className="flex-1 text-sm font-bold">使い方・判定の基準</span>
-        <span aria-hidden className="text-[var(--color-ink-sub)]">
+        <span className="flex-1 text-[16px] font-bold">使い方・判定の基準</span>
+        <span aria-hidden className="text-[var(--color-sub)]">
           {open ? "▲" : "▼"}
         </span>
       </button>
 
       {open && (
-        <div className="space-y-3 border-t border-[var(--color-line)] px-3 py-3">
+        <div className="mt-3 space-y-3 border-t border-[var(--color-line)] pt-3">
           {SECTIONS.map((s) => (
             <section key={s.title}>
-              <h3 className="mb-1 text-xs font-bold text-[var(--color-gold-dark)]">
+              <h3 className="mb-1 text-[12px] font-bold text-[var(--color-brown2)]">
                 {s.title}
               </h3>
               <dl className="space-y-1">
                 {s.rows.map(([term, desc], i) => (
                   <div key={i} className="text-[12px] leading-relaxed">
                     {term && <dt className="font-bold">{term}</dt>}
-                    <dd className="text-[var(--color-ink-sub)]">{desc}</dd>
+                    <dd className="text-[var(--color-sub)]">{desc}</dd>
                   </div>
                 ))}
               </dl>

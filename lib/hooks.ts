@@ -6,27 +6,31 @@ import { STORES } from "./checklist";
 import { todayISO, useStore } from "./store";
 import type { Inspection, StoreName } from "./types";
 
-function isStore(v: string | null): v is StoreName {
-  return !!v && (STORES as string[]).includes(v);
+export type Tab = StoreName | "まとめ";
+
+const TABS: Tab[] = [...STORES, "まとめ"];
+
+function isTab(v: string | null): v is Tab {
+  return !!v && (TABS as string[]).includes(v);
 }
 
-/** 選択中の店舗はURLに持たせる。再読み込みしても戻らないようにするため */
-export function useStoreParam(): [StoreName, (s: StoreName) => void] {
+/** 選択中のタブはURLに持たせる。再読み込みしても戻らないようにするため */
+export function useTabParam(): [Tab, (t: Tab) => void] {
   const params = useSearchParams();
   const router = useRouter();
   const raw = params.get("store");
-  const store: StoreName = isStore(raw) ? raw : STORES[0];
+  const tab: Tab = isTab(raw) ? raw : STORES[0];
 
-  const setStore = useCallback(
-    (s: StoreName) => {
+  const setTab = useCallback(
+    (t: Tab) => {
       const next = new URLSearchParams(params.toString());
-      next.set("store", s);
+      next.set("store", t);
       router.replace(`?${next.toString()}`, { scroll: false });
     },
     [params, router],
   );
 
-  return [store, setStore];
+  return [tab, setTab];
 }
 
 /** その店舗の「今日の視察」。無ければ undefined */
@@ -56,19 +60,4 @@ export function useEnsureTodayInspection(store: StoreName): Inspection | undefin
   }, [ready, existing, createInspection, store, data.lastInspector]);
 
   return existing;
-}
-
-/** その店舗の直近の視察（今日の分を含む）。ホームやスコア表示に使う */
-export function useLatestInspection(store: StoreName): Inspection | undefined {
-  const { data } = useStore();
-  return useMemo(
-    () =>
-      data.inspections
-        .filter((i) => i.store === store)
-        .sort(
-          (a, b) =>
-            b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt),
-        )[0],
-    [data.inspections, store],
-  );
 }

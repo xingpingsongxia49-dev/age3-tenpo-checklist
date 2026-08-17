@@ -4,24 +4,18 @@ import { useRef, useState } from "react";
 import { usePhotoUrl, useStore } from "@/lib/store";
 import { compareJudgement, isFixed } from "@/lib/score";
 import type { Answer, ChecklistItem, Judgement } from "@/lib/types";
-import { ChangeBadge, JUDGEMENT_ICON, JUDGEMENT_STYLE, WeightBadge } from "./ui";
+import { ChangeBadge, JUDGEMENT_COLOR, JUDGEMENT_ICON, WeightBadge } from "./ui";
 
 const JUDGEMENTS: Judgement[] = ["○", "△", "×", "対象外"];
 
-function Thumb({
-  photoId,
-  onRemove,
-}: {
-  photoId: string;
-  onRemove: () => void;
-}) {
+function Thumb({ photoId, onRemove }: { photoId: string; onRemove: () => void }) {
   const url = usePhotoUrl(photoId);
   return (
-    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-na-soft)]">
+    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-chip-bg)]">
       {url && (
-        // 端末内の写真をそのまま出すだけなので next/image は使わない
-        // eslint-disable-next-line @next/next/no-img-element
         <a href={url} target="_blank" rel="noreferrer">
+          {/* 端末内の写真をそのまま出すだけなので next/image は使わない */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={url} alt="現場写真" className="h-full w-full object-cover" />
         </a>
       )}
@@ -29,7 +23,7 @@ function Thumb({
         type="button"
         onClick={onRemove}
         aria-label="この写真を削除"
-        className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center bg-black/60 text-xs font-bold text-white"
+        className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center bg-black/55 text-[11px] font-bold text-white"
       >
         ✕
       </button>
@@ -37,7 +31,7 @@ function Thumb({
   );
 }
 
-export function ItemCard({
+export function ItemRow({
   item,
   answer,
   inspectionId,
@@ -53,66 +47,66 @@ export function ItemCard({
   const { updateAnswer, addPhoto, removePhoto } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [openNote, setOpenNote] = useState(false);
 
   const patch = (p: Partial<Answer>) => updateAnswer(inspectionId, item.id, p);
 
   const isNg = answer.judgement === "×";
   const needsDetail = isNg && (!answer.owner || !answer.due);
+  // 参考アプリの「完了項目」に相当。手を打つ必要が無くなった行を沈める
+  const settled = answer.judgement === "○" || answer.judgement === "対象外";
   const change = compareJudgement(prevAnswer?.judgement ?? null, answer.judgement);
   const fixed = isFixed(prevAnswer?.judgement ?? null, answer.judgement);
-  const showDetail = open || isNg || !!answer.note || answer.photos.length > 0;
+  const showDetail = openNote || isNg || !!answer.note || answer.photos.length > 0;
 
   return (
-    <li
-      className={`border-b border-[var(--color-line)] px-3 py-3 last:border-b-0 ${
-        isNg ? "bg-[var(--color-ng-soft)]/40" : ""
-      }`}
-    >
-      <div className="flex gap-2">
+    <li className="border-b border-[var(--color-line)] py-3 last:border-b-0">
+      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <WeightBadge w={item.weight} />
-        <div className="min-w-0 flex-1">
-          <p className="text-[15px] leading-snug">
-            <span className="tabular mr-1 text-xs text-[var(--color-ink-sub)]">
-              {item.id}.
+        {prevAnswer?.judgement && answer.judgement && (
+          <ChangeBadge change={change} fixed={fixed} />
+        )}
+        {prevAnswer?.judgement && (
+          <span className="text-[11px] text-[var(--color-sub)]">
+            前回（{prevDate}）
+            <span
+              className="ml-0.5 font-bold"
+              style={{ color: JUDGEMENT_COLOR[prevAnswer.judgement].ink }}
+            >
+              {JUDGEMENT_ICON[prevAnswer.judgement]} {prevAnswer.judgement}
             </span>
-            {item.text}
-          </p>
-
-          {prevAnswer?.judgement && (
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-ink-sub)]">
-              <span>
-                前回（{prevDate}）:{" "}
-                <span
-                  className={`font-bold ${JUDGEMENT_STYLE[prevAnswer.judgement].text}`}
-                >
-                  {JUDGEMENT_ICON[prevAnswer.judgement]} {prevAnswer.judgement}
-                </span>
-              </span>
-              {answer.judgement && <ChangeBadge change={change} fixed={fixed} />}
-            </div>
-          )}
-        </div>
+          </span>
+        )}
       </div>
+
+      <p className={`text-[14px] leading-snug ${settled ? "item-done" : ""}`}>
+        <span className="tabular mr-1 text-[12px] text-[var(--color-sub)]">
+          {item.id}.
+        </span>
+        {item.text}
+      </p>
 
       <div className="mt-2 grid grid-cols-4 gap-1.5">
         {JUDGEMENTS.map((j) => {
-          const selected = answer.judgement === j;
-          const s = JUDGEMENT_STYLE[j];
+          const on = answer.judgement === j;
+          const c = JUDGEMENT_COLOR[j];
           return (
             <button
               key={j}
               type="button"
-              aria-pressed={selected}
-              onClick={() => patch({ judgement: selected ? null : j })}
-              className={`flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-lg border-2 text-sm font-bold ${
-                selected ? s.on : `${s.off} opacity-80`
-              }`}
+              aria-pressed={on}
+              onClick={() => patch({ judgement: on ? null : j })}
+              className="flex min-h-[46px] flex-col items-center justify-center gap-0.5 rounded-xl border text-[11px] font-bold"
+              style={
+                on
+                  ? { background: c.ink, borderColor: c.ink, color: "#fff" }
+                  : { background: c.bg, borderColor: "var(--color-line)", color: c.ink }
+              }
             >
-              <span aria-hidden className="text-base leading-none">
+              <span aria-hidden className="text-[15px] leading-none">
                 {JUDGEMENT_ICON[j]}
               </span>
-              <span className="text-[11px] leading-none">{j}</span>
+              <span className="leading-none">{j}</span>
             </button>
           );
         })}
@@ -121,8 +115,8 @@ export function ItemCard({
       {!showDetail && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="mt-2 text-xs font-bold text-[var(--color-gold-dark)] underline"
+          onClick={() => setOpenNote(true)}
+          className="mt-2 text-[12px] font-bold text-[var(--color-brown2)] underline"
         >
           ＋ メモ・写真を追加
         </button>
@@ -135,10 +129,10 @@ export function ItemCard({
             onChange={(e) => patch({ note: e.target.value })}
             rows={2}
             placeholder="事実を書く（例：レジで一言なし、5組中4組。15:00〜15:20観察）"
-            className="w-full rounded-md border border-[var(--color-line)] p-2 text-sm"
+            className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-chip-bg)] p-2.5 text-[14px]"
           />
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               ref={fileRef}
               type="file"
@@ -158,12 +152,12 @@ export function ItemCard({
               type="button"
               disabled={busy}
               onClick={() => fileRef.current?.click()}
-              className="min-h-[40px] rounded-md border border-[var(--color-line)] px-3 text-sm font-bold active:bg-[var(--color-gold-soft)] disabled:opacity-40"
+              className="chip min-h-[38px] px-3 text-[13px] font-bold disabled:opacity-45"
             >
               {busy ? "保存中…" : "📷 写真を撮る／選ぶ"}
             </button>
             {answer.photos.length > 0 && (
-              <span className="text-xs text-[var(--color-ink-sub)]">
+              <span className="text-[11px] text-[var(--color-sub)]">
                 {answer.photos.length}枚（端末内のみ）
               </span>
             )}
@@ -182,45 +176,41 @@ export function ItemCard({
           )}
 
           {isNg && (
-            <div className="rounded-md border border-[var(--color-ng)] bg-white p-2">
-              <p className="mb-2 text-xs font-bold text-[var(--color-ng)]">
+            <div className="notice px-3 py-2.5">
+              <p className="mb-2 text-[12px] font-bold">
                 ×をつけたら、その場で担当と期限を埋める。空欄のまま帰らない。
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className="text-[11px] text-[var(--color-ink-sub)]">
-                    是正担当
-                  </span>
+                  <span className="text-[11px]">是正担当</span>
                   <input
                     value={answer.owner}
                     onChange={(e) => patch({ owner: e.target.value })}
                     placeholder="店長"
-                    className="mt-0.5 w-full rounded-md border border-[var(--color-line)] p-2 text-sm"
+                    className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
                   />
                 </label>
                 <label className="block">
-                  <span className="text-[11px] text-[var(--color-ink-sub)]">期限</span>
+                  <span className="text-[11px]">期限</span>
                   <input
                     type="date"
                     value={answer.due}
                     onChange={(e) => patch({ due: e.target.value })}
-                    className="mt-0.5 w-full rounded-md border border-[var(--color-line)] p-2 text-sm"
+                    className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
                   />
                 </label>
               </div>
               <label className="mt-2 block">
-                <span className="text-[11px] text-[var(--color-ink-sub)]">
-                  完了日（是正が済んだら入れる）
-                </span>
+                <span className="text-[11px]">完了日（是正が済んだら入れる）</span>
                 <input
                   type="date"
                   value={answer.doneAt}
                   onChange={(e) => patch({ doneAt: e.target.value })}
-                  className="mt-0.5 w-full rounded-md border border-[var(--color-line)] p-2 text-sm"
+                  className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
                 />
               </label>
               {needsDetail && (
-                <p className="mt-2 text-xs font-bold text-[var(--color-ng)]">
+                <p className="mt-2 text-[12px] font-bold" style={{ color: "var(--color-ng)" }}>
                   ⚠ 担当・期限が未記入です
                 </p>
               )}

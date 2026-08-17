@@ -1,28 +1,32 @@
 @import "tailwindcss";
 
 /*
- * 配色の原則（明るい店内でスマホ片手操作する前提）
- * - 背景は白、文字は黒。暗い背景は店内で見えなくなるため使わない。
- * - ゴールドはヘッダーとボタンのアクセントのみ。面で塗らない。
- * - 判定は 〇=緑 / △=黄 / ×=赤 / 対象外=グレー。色に加えて必ずアイコンでも区別する。
+ * 既存のAge.3アプリ（新商品チェックリスト）と同じトークン。
+ * 3店舗を回るときに見た目が変わらないよう、色・角丸・影・余白をそちらに揃えている。
  */
 @theme {
-  --color-gold: #c9a227;
-  --color-gold-dark: #a5851d;
-  --color-gold-soft: #faf4e2;
+  --color-brown: #3e2c23;
+  --color-brown2: #5a4234;
+  --color-line: #e7ded5;
+  --color-sub: #8a7a6d;
+  --color-chip-bg: #fdfbf9;
+  --color-head-sub: #d9c9bc;
 
-  --color-ok: #15803d;
-  --color-ok-soft: #e8f6ec;
-  --color-warn: #a16207;
-  --color-warn-soft: #fdf4d7;
-  --color-ng: #b91c1c;
-  --color-ng-soft: #fdeaea;
-  --color-na: #57534e;
-  --color-na-soft: #f0efee;
+  --color-warn-line: #d9b24a;
+  --color-warn-bg: #fdf7e6;
+  --color-warn-ink: #8a6d22;
 
-  --color-ink: #111111;
-  --color-ink-sub: #4b4b4b;
-  --color-line: #e0ddd6;
+  --color-done: #a99d93;
+
+  /* 判定4値。色に加えて必ず記号でも区別する */
+  --color-ok: #2f6b46;
+  --color-ok-bg: #eef5f0;
+  --color-mid: #8a6d22;
+  --color-mid-bg: #fdf7e6;
+  --color-ng: #a33a2e;
+  --color-ng-bg: #fbeeec;
+  --color-na: #8a7a6d;
+  --color-na-bg: #f4f1ee;
 }
 
 :root {
@@ -30,32 +34,95 @@
 }
 
 html {
-  /* 明朝は使わない。ゴシック体を必ず先に当てる */
   font-family:
-    system-ui,
     -apple-system,
-    "Hiragino Kaku Gothic ProN",
-    "Noto Sans CJK JP",
+    BlinkMacSystemFont,
+    "Hiragino Sans",
     "Noto Sans JP",
-    "Yu Gothic",
-    Meiryo,
     sans-serif;
   -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: #ffffff;
-  color: var(--color-ink);
+  min-height: 100dvh;
+  background: linear-gradient(180deg, #4a362b, #2e211a);
+  background-attachment: fixed;
+  color: var(--color-brown);
+  -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
 
-/* 片手操作でタップを外さないよう、押せるものは最低44pxを確保する */
-button,
-a,
-input,
-select,
-textarea {
-  touch-action: manipulation;
+.container-app {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.chip {
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  background: var(--color-chip-bg);
+  color: var(--color-brown2);
+}
+
+.chip-on {
+  background: var(--color-brown);
+  color: #fff;
+  border-color: var(--color-brown);
+}
+
+.notice {
+  border: 1px dashed var(--color-warn-line);
+  background: var(--color-warn-bg);
+  color: var(--color-warn-ink);
+  border-radius: 12px;
+}
+
+.bar {
+  height: 7px;
+  border-radius: 999px;
+  background: #efe9e3;
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6b4e3a, #3e2c23);
+  transition: width 0.3s ease;
+}
+
+.btn {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--color-line);
+  background: #fff;
+  color: var(--color-brown2);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: var(--color-brown);
+  border-color: var(--color-brown);
+  color: #fff;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+}
+
+.item-done {
+  color: var(--color-done);
+  text-decoration: line-through;
 }
 
 input,
@@ -64,15 +131,14 @@ textarea {
   font-size: 16px; /* iOSで入力時に画面が拡大するのを防ぐ */
 }
 
-.safe-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
-}
-
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
 @media print {
+  body {
+    background: #fff;
+  }
   .no-print {
     display: none !important;
   }
