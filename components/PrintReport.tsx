@@ -189,16 +189,40 @@ export function StoreReport({
     : [];
   const worsenedCount = allIssues.filter((r) => r.worsened).length;
 
-  // 要改善の写真はカード内に出す。カードに載らなかった項目（○・対象外、
-  // および掲載枠から外れた要改善）の写真は落とさず「そのほかの写真」に回す。
+  // 要改善の写真はカード内に出す。カードに載らなかったもの（カテゴリ単位で撮った写真、
+  // ○・対象外の項目に直接付いた写真、掲載枠から外れた要改善）は
+  // 落とさず「そのほかの写真」に回す。ここはカードの1ページ8枚とは無関係。
   const cardIds = new Set(issues.map(({ item }) => item.id));
-  const otherPhotos = items
-    .filter((i) => !cardIds.has(i.id))
-    .map((item) => ({ item, a: answerOf(inspection, item.id) }))
-    .filter(({ a }) => a.photos.length > 0)
-    .flatMap(({ item, a }) =>
-      a.photos.map((pid, i) => ({ pid, item, a, index: i, total: a.photos.length })),
-    );
+
+  const otherPhotos: {
+    pid: string;
+    caption: string;
+    judgement: string | null;
+    note?: string;
+  }[] = [
+    // カテゴリ単位で撮った写真
+    ...CATEGORIES.flatMap((cat) =>
+      (inspection.categoryPhotos?.[cat] ?? []).map((pid, i, arr) => ({
+        pid,
+        caption: `${cat}${arr.length > 1 ? `（${i + 1}/${arr.length}）` : ""}`,
+        judgement: null as string | null,
+        note: undefined,
+      })),
+    ),
+    // 項目に直接付いた写真のうち、カードに出ていないもの
+    ...items
+      .filter((i) => !cardIds.has(i.id))
+      .map((item) => ({ item, a: answerOf(inspection, item.id) }))
+      .filter(({ a }) => a.photos.length > 0)
+      .flatMap(({ item, a }) =>
+        a.photos.map((pid, i) => ({
+          pid,
+          caption: `${item.id}. ${item.text}${a.photos.length > 1 ? `（${i + 1}/${a.photos.length}）` : ""}`,
+          judgement: a.judgement as string | null,
+          note: a.note || undefined,
+        })),
+      ),
+  ];
 
   const issuePhotoIds = includePhotos
     ? issues.flatMap(({ a }) => a.photos).slice(0, MAX_PHOTOS)
@@ -569,16 +593,16 @@ export function StoreReport({
             {previous ? "4" : "3"}. そのほかの写真（{refPhotos.length}枚）
           </h2>
           <p className="pr-foot-note">
-            上のカードに載らなかった項目の写真。○・対象外の項目と、掲載枠から外れた要改善が入る。
+            カテゴリ単位で撮った写真と、上のカードに載らなかった項目の写真。
           </p>
           <div className="pr-photos">
-            {refPhotos.map(({ pid, item, a, index, total }) => (
+            {refPhotos.map(({ pid, caption, judgement, note }) => (
               <PhotoCell
                 key={pid}
                 url={urls.get(pid)}
-                judgement={a.judgement}
-                caption={`${item.id}. ${item.text}${total > 1 ? `（${index + 1}/${total}）` : ""}`}
-                note={a.note}
+                judgement={judgement}
+                caption={caption}
+                note={note}
               />
             ))}
           </div>

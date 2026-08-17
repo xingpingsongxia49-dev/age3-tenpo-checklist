@@ -870,3 +870,153 @@ textarea {
     width: 100%;
   }
 }
+
+/* ==================================================================
+ * カテゴリ単位の写真欄（入力画面）
+ * 2列 × 4段 = スマホ縦持ちの1画面にちょうど8枚。
+ * 縦写真と横写真が混ざってもタイルが揃うよう、比率を4/3に固定して切り抜く。
+ * ================================================================== */
+
+.cp {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-line);
+}
+
+.cp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cp-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-brown);
+}
+
+.cp-count {
+  font-size: 11px;
+  color: var(--color-sub);
+}
+
+.cp-add-btn {
+  margin-left: auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  background: var(--color-chip-bg);
+  color: var(--color-brown2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cp-add-btn:disabled {
+  opacity: 0.45;
+}
+
+.cp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.cp-tile {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  border: 1px solid #e7ded5;
+  overflow: hidden;
+  background: var(--color-chip-bg);
+}
+
+.cp-tile-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.cp-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.cp-tile-del {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 空のときも同じ1マス分の大きさで置き、枠の大きさが分かるようにする */
+.cp-placeholder {
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  border: 1px dashed #e7ded5;
+  background: var(--color-chip-bg);
+  color: var(--color-sub);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.cp-placeholder-plus {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cp-placeholder-text {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* 拡大表示。切り抜かず元の比率のまま全体を見せる */
+.cp-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(20, 14, 10, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.cp-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.cp-lightbox-close {
+  position: absolute;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}

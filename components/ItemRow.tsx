@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { usePhotoUrl, useStore } from "@/lib/store";
 import { compareJudgement, isFixed } from "@/lib/score";
 import type { Answer, ChecklistItem, Judgement } from "@/lib/types";
@@ -47,9 +47,7 @@ export function ItemRow({
   /** 今回を含めて何回連続で×か。2以上なら現場ではなく基準の問題を疑う */
   streak?: number;
 }) {
-  const { updateAnswer, addPhoto, removePhoto } = useStore();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
+  const { updateAnswer, removePhoto } = useStore();
   const [openNote, setOpenNote] = useState(false);
 
   const patch = (p: Partial<Answer>) => updateAnswer(inspectionId, item.id, p);
@@ -128,37 +126,10 @@ export function ItemRow({
         })}
       </div>
 
-      {/* 判定に関わらず、どの項目にも写真とメモを付けられるようにする。
-          良い状態の記録（基準写真）も報告書に載せたいため。 */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple
-          className="hidden"
-          onChange={async (e) => {
-            const files = Array.from(e.target.files ?? []);
-            e.target.value = "";
-            if (files.length === 0) return;
-            setBusy(true);
-            for (const file of files) {
-              await addPhoto(inspectionId, item.id, file);
-            }
-            setBusy(false);
-          }}
-        />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-          className="chip min-h-[38px] px-3 text-[13px] font-bold disabled:opacity-45"
-        >
-          {busy ? "保存中…" : "📷 写真を追加"}
-        </button>
-
-        {!showNote && (
+      {/* 写真はカテゴリ単位（項目リストの直後の写真欄）に集約した。
+          ここではメモだけを扱う。 */}
+      {!showNote && (
+        <div className="mt-2">
           <button
             type="button"
             onClick={() => setOpenNote(true)}
@@ -166,24 +137,24 @@ export function ItemRow({
           >
             ＋ メモ
           </button>
-        )}
+        </div>
+      )}
 
-        {answer.photos.length > 0 && (
-          <span className="text-[11px] text-[var(--color-sub)]">
-            写真{answer.photos.length}枚（PDFに載ります）
-          </span>
-        )}
-      </div>
-
+      {/* 項目に直接付けた写真は旧仕様のもの。消せるようにここに残す */}
       {answer.photos.length > 0 && (
-        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-          {answer.photos.map((pid) => (
-            <Thumb
-              key={pid}
-              photoId={pid}
-              onRemove={() => void removePhoto(inspectionId, item.id, pid)}
-            />
-          ))}
+        <div className="mt-2">
+          <p className="mb-1 text-[11px] text-[var(--color-sub)]">
+            この項目に直接付けた写真（{answer.photos.length}枚）
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {answer.photos.map((pid) => (
+              <Thumb
+                key={pid}
+                photoId={pid}
+                onRemove={() => void removePhoto(inspectionId, item.id, pid)}
+              />
+            ))}
+          </div>
         </div>
       )}
 

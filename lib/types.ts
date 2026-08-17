@@ -40,6 +40,12 @@ export type Inspection = {
   date: string;
   inspector: string;
   answers: Record<number, Answer>;
+  /**
+   * カテゴリ単位で撮った写真。項目ではなくカテゴリに紐づく。
+   * 入力画面ではカテゴリの項目リストの直後に常時表示する。
+   * 既存データには無いので省略可にしてある。
+   */
+  categoryPhotos?: Record<string, string[]>;
   createdAt: string;
   updatedAt: string;
   /** 視察を締めた日時。締めると履歴に確定表示される */

@@ -96,6 +96,7 @@ function normalize(raw: unknown): AppData {
     lastInspector: typeof d.lastInspector === "string" ? d.lastInspector : "",
     inspections: d.inspections.map((insp) => ({
       ...insp,
+      categoryPhotos: insp.categoryPhotos ?? {},
       answers: Object.fromEntries(
         Object.entries(insp.answers ?? {}).map(([k, v]) => [
           k,
@@ -154,14 +155,20 @@ export const localStorageBacked: Storage = {
     const data = await this.loadAll();
     const photos: Record<string, string> = {};
     if (withPhotos) {
+      // 項目に直接付けた写真と、カテゴリ単位で撮った写真の両方を入れる。
+      // 片方でも漏らすと、復元したときに写真が消える。
+      const ids = new Set<string>();
       for (const insp of data.inspections) {
         for (const a of Object.values(insp.answers)) {
-          for (const pid of a.photos ?? []) {
-            if (photos[pid]) continue;
-            const blob = await this.getPhoto(pid);
-            if (blob) photos[pid] = await blobToDataUrl(blob);
-          }
+          for (const pid of a.photos ?? []) ids.add(pid);
         }
+        for (const list of Object.values(insp.categoryPhotos ?? {})) {
+          for (const pid of list) ids.add(pid);
+        }
+      }
+      for (const pid of ids) {
+        const blob = await this.getPhoto(pid);
+        if (blob) photos[pid] = await blobToDataUrl(blob);
       }
     }
     return JSON.stringify(

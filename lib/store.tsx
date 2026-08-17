@@ -43,6 +43,8 @@ type Ctx = {
   resetInspection: (id: string) => Promise<void>;
   addPhoto: (id: string, itemId: number, file: File) => Promise<void>;
   removePhoto: (id: string, itemId: number, photoId: string) => Promise<void>;
+  addCategoryPhoto: (id: string, category: string, file: File) => Promise<void>;
+  removeCategoryPhoto: (id: string, category: string, photoId: string) => Promise<void>;
   exportBundle: (withPhotos: boolean) => Promise<string>;
   importBundle: (json: string) => Promise<void>;
   clearAll: () => Promise<void>;
@@ -153,6 +155,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         for (const a of Object.values(target.answers)) {
           for (const pid of a.photos ?? []) await storage.deletePhoto(pid);
         }
+        for (const ids of Object.values(target.categoryPhotos ?? {})) {
+          for (const pid of ids) await storage.deletePhoto(pid);
+        }
       }
       mutate((d) => ({
         ...d,
@@ -170,11 +175,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         for (const a of Object.values(target.answers)) {
           for (const pid of a.photos ?? []) await storage.deletePhoto(pid);
         }
+        for (const ids of Object.values(target.categoryPhotos ?? {})) {
+          for (const pid of ids) await storage.deletePhoto(pid);
+        }
       }
       mutate((d) => ({
         ...d,
         inspections: d.inspections.map((insp) =>
-          insp.id !== id ? insp : { ...insp, answers: {}, updatedAt: stamp() },
+          insp.id !== id
+            ? insp
+            : { ...insp, answers: {}, categoryPhotos: {}, updatedAt: stamp() },
         ),
       }));
     },
@@ -229,6 +239,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [mutate],
   );
 
+  const addCategoryPhoto = useCallback(
+    async (id: string, category: string, file: File) => {
+      const blob = await compressImage(file);
+      const photoId = await storage.putPhoto(blob);
+      mutate((d) => ({
+        ...d,
+        inspections: d.inspections.map((insp) => {
+          if (insp.id !== id) return insp;
+          const prev = insp.categoryPhotos ?? {};
+          return {
+            ...insp,
+            updatedAt: stamp(),
+            categoryPhotos: { ...prev, [category]: [...(prev[category] ?? []), photoId] },
+          };
+        }),
+      }));
+    },
+    [mutate],
+  );
+
+  const removeCategoryPhoto = useCallback(
+    async (id: string, category: string, photoId: string) => {
+      await storage.deletePhoto(photoId);
+      mutate((d) => ({
+        ...d,
+        inspections: d.inspections.map((insp) => {
+          if (insp.id !== id) return insp;
+          const prev = insp.categoryPhotos ?? {};
+          return {
+            ...insp,
+            updatedAt: stamp(),
+            categoryPhotos: {
+              ...prev,
+              [category]: (prev[category] ?? []).filter((p) => p !== photoId),
+            },
+          };
+        }),
+      }));
+    },
+    [mutate],
+  );
+
   const exportBundle = useCallback(
     (withPhotos: boolean) => storage.exportBundle(withPhotos),
     [],
@@ -258,6 +310,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       resetInspection,
       addPhoto,
       removePhoto,
+      addCategoryPhoto,
+      removeCategoryPhoto,
       exportBundle,
       importBundle,
       clearAll,
@@ -273,6 +327,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       resetInspection,
       addPhoto,
       removePhoto,
+      addCategoryPhoto,
+      removeCategoryPhoto,
       exportBundle,
       importBundle,
       clearAll,
