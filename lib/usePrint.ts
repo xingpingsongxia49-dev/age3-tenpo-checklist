@@ -32,6 +32,16 @@ export function usePrint(): {
       // 描画が反映されるのを待つ
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+      // 写真は端末内(IndexedDB)から非同期に読むので、img要素が現れる前に
+      // 印刷を始めると空枠のまま出てしまう。報告書が「揃った」と言うまで待つ。
+      const deadline = Date.now() + 15_000;
+      while (Date.now() < deadline) {
+        const doc = document.querySelector(".print-only [data-photos-ready]");
+        if (!doc || doc.getAttribute("data-photos-ready") === "true") break;
+        await new Promise((r) => setTimeout(r, 80));
+      }
+      if (done) return;
+
       const root = document.querySelector(".print-only");
       if (root) {
         const imgs = Array.from(root.querySelectorAll("img"));

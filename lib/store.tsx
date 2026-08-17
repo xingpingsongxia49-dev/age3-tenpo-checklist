@@ -312,3 +312,55 @@ export function usePhotoUrl(photoId: string | null): string | null {
 
   return url;
 }
+
+/**
+ * 複数の写真をまとめて読み込む。
+ * 報告書は「全部そろってから印刷する」必要があるので、
+ * 1枚ずつ読む usePhotoUrl ではなく、揃ったかどうかを返すこちらを使う。
+ */
+export function usePhotoUrls(photoIds: string[]): {
+  urls: Map<string, string>;
+  ready: boolean;
+} {
+  const key = photoIds.join(",");
+  const [state, setState] = useState<{ urls: Map<string, string>; ready: boolean }>({
+    urls: new Map(),
+    ready: photoIds.length === 0,
+  });
+
+  useEffect(() => {
+    const ids = key ? key.split(",") : [];
+    if (ids.length === 0) {
+      setState({ urls: new Map(), ready: true });
+      return;
+    }
+
+    let alive = true;
+    const created: string[] = [];
+
+    Promise.all(
+      ids.map(async (id) => {
+        const blob = await storage.getPhoto(id);
+        if (!blob) return [id, null] as const;
+        const url = URL.createObjectURL(blob);
+        created.push(url);
+        return [id, url] as const;
+      }),
+    ).then((pairs) => {
+      if (!alive) {
+        created.forEach((u) => URL.revokeObjectURL(u));
+        return;
+      }
+      const map = new Map<string, string>();
+      for (const [id, url] of pairs) if (url) map.set(id, url);
+      setState({ urls: map, ready: true });
+    });
+
+    return () => {
+      alive = false;
+      created.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [key]);
+
+  return state;
+}

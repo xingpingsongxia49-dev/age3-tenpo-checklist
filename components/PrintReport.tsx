@@ -9,7 +9,7 @@
  * 溢れた分は件数を明記して落とす（黙って切ると「全部載っている」と誤読されるため）。
  */
 
-import { usePhotoUrl } from "@/lib/store";
+import { usePhotoUrls } from "@/lib/store";
 import {
   answerOf,
   collectCorrections,
@@ -92,19 +92,18 @@ function Kpi({
 }
 
 function PhotoCell({
-  photoId,
+  url,
   no,
   judgement,
   caption,
   note,
 }: {
-  photoId: string;
+  url?: string;
   no: number;
   judgement: string | null;
   caption: string;
   note?: string;
 }) {
-  const url = usePhotoUrl(photoId);
   const ink =
     judgement === "×" ? INK.ng : judgement === "△" ? INK.mid : judgement === "○" ? INK.ok : INK.na;
   return (
@@ -125,6 +124,24 @@ function PhotoCell({
         {note && <span className="pr-photo-note">{note}</span>}
       </figcaption>
     </figure>
+  );
+}
+
+/** 要改善一覧の行に置く証跡サムネイル。指摘のすぐ横に現物を出す */
+function RowThumbs({ urls, nos }: { urls: (string | undefined)[]; nos: number[] }) {
+  if (urls.length === 0) return <span className="pr-nothumb">—</span>;
+  return (
+    <span className="pr-thumbs">
+      {urls.slice(0, 1).map((u, i) => (
+        <span key={i} className="pr-thumb">
+          {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {u && <img src={u} alt="" />}
+          <span className="pr-thumb-no">{nos[i]}</span>
+        </span>
+      ))}
+      {urls.length > 1 && <span className="pr-thumb-more">+{urls.length - 1}</span>}
+    </span>
   );
 }
 
@@ -200,11 +217,15 @@ export function StoreReport({
   const photos = includePhotos ? allPhotos.slice(0, MAX_PHOTOS) : [];
   const photoOmitted = includePhotos ? allPhotos.length - photos.length : 0;
 
-  // 要改善の行から「写真3,4」と参照できるよう、写真IDに通し番号を振る
+  // 要改善の行から「写真3・4」と参照できるよう、写真IDに通し番号を振る
   const photoNo = new Map(photos.map((p, i) => [p.pid, i + 1] as const));
 
+  // 写真は端末内(IndexedDB)から非同期に読む。全部そろう前に印刷すると
+  // 空枠のまま出てしまうので、揃ったことを data-photos-ready で外に伝える。
+  const { urls, ready: photosReady } = usePhotoUrls(photos.map((p) => p.pid));
+
   return (
-    <div className="pr-doc pr-sheet">
+    <div className="pr-doc pr-sheet" data-photos-ready={photosReady ? "true" : "false"}>
       <Head
         title="店舗チェック報告書"
         meta={`${inspection.store}　${inspection.date}　視察者：${inspection.inspector || "—"}`}
@@ -441,6 +462,7 @@ export function StoreReport({
               <th className="w-w">重要度</th>
               <th className="w-cat2">カテゴリ</th>
               <th>チェック項目／確認した事実</th>
+              <th className="w-thumb">写真</th>
               <th className="w-own">担当</th>
               <th className="w-due">期限</th>
             </tr>
@@ -465,16 +487,18 @@ export function StoreReport({
                     {a.note && <span className="pr-fact-text">事実：{a.note}</span>}
                     {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
                     {worsened && <span className="pr-tag is-ng">悪化</span>}
-                    {a.photos.length > 0 && (
-                      <span className="pr-tag">
-                        写真
-                        {a.photos
-                          .map((pid) => photoNo.get(pid))
-                          .filter(Boolean)
-                          .join("・") || `${a.photos.length}枚`}
-                      </span>
+                    {a.photos.length > 0 && !includePhotos && (
+                      <span className="pr-tag">写真{a.photos.length}枚</span>
                     )}
                   </span>
+                </td>
+                <td className="w-thumb">
+                  <RowThumbs
+                    urls={a.photos.filter((pid) => photoNo.has(pid)).map((pid) => urls.get(pid))}
+                    nos={a.photos
+                      .map((pid) => photoNo.get(pid))
+                      .filter((n): n is number => n !== undefined)}
+                  />
                 </td>
                 <td className="w-own">
                   {a.judgement === "×" ? (
@@ -509,7 +533,7 @@ export function StoreReport({
             {photos.map(({ pid, item, a, index, total }) => (
               <PhotoCell
                 key={pid}
-                photoId={pid}
+                url={urls.get(pid)}
                 no={photoNo.get(pid) ?? 0}
                 judgement={a.judgement}
                 caption={`${item.id}. ${item.text}${total > 1 ? `（${index + 1}/${total}）` : ""}`}
