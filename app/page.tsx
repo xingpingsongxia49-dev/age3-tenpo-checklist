@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { DueAlert } from "@/components/DueAlert";
 import { Guide } from "@/components/Guide";
 import { StoreChips } from "@/components/StoreChips";
 import { StorePanel } from "@/components/StorePanel";
@@ -26,6 +27,8 @@ function App() {
       </header>
 
       <StoreChips tab={tab} onChange={setTab} />
+
+      <DueAlert onOpen={() => setTab("まとめ")} />
 
       <div className="mt-4">
         {tab === "まとめ" ? (

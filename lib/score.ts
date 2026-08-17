@@ -293,3 +293,83 @@ export function collectCorrections(
       (a.due || "9999-99-99").localeCompare(b.due || "9999-99-99"),
   );
 }
+
+/**
+ * 同じ項目が何回連続で×か（今回を含む）。
+ * 「基準が無いまま毎回同じ×が並ぶ」項目を炙り出すための指標。
+ * 元エクセルの「なぜ⓪を新設したか」に対応する。現場を叱っても直らない項目は、
+ * 連続×として何度も出てくるので、そこは本部・店長の宿題として扱う。
+ */
+export function batsuStreak(
+  all: Inspection[],
+  current: Inspection,
+  itemId: number,
+): number {
+  const history = all
+    .filter(
+      (i) =>
+        i.store === current.store &&
+        hasAnswers(i) &&
+        (i.date < current.date ||
+          (i.date === current.date && i.createdAt <= current.createdAt)),
+    )
+    .sort(
+      (a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt),
+    );
+
+  let streak = 0;
+  for (const insp of history) {
+    if (answerOf(insp, itemId).judgement !== "×") break;
+    streak += 1;
+  }
+  return streak;
+}
+
+/**
+ * 前回×だったのに今回まだ入力していない項目。
+ * 前回の指摘を確認し忘れたまま店を出るのを防ぐ。
+ */
+export function unconfirmedPreviousBatsu(
+  all: Inspection[],
+  current: Inspection,
+): ChecklistItem[] {
+  const previous = findPrevious(all, current);
+  if (!previous) return [];
+  return itemsForStore(current.store).filter(
+    (item) =>
+      previous.answers[item.id]?.judgement === "×" &&
+      answerOf(current, item.id).judgement === null,
+  );
+}
+
+export type DueSummary = {
+  /** 期限を過ぎた未完了の是正 */
+  overdue: Correction[];
+  /** 期限が今日〜指定日数以内に迫っている未完了の是正 */
+  dueSoon: Correction[];
+  /** 期限が未記入の未完了の是正 */
+  noDue: Correction[];
+};
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** 全店横断で、期限が切れている／迫っている是正を拾う */
+export function dueSummary(
+  inspections: Inspection[],
+  today: string,
+  withinDays = 3,
+): DueSummary {
+  const open = collectCorrections(inspections, today).filter((c) => c.status !== "完了");
+  const limit = addDays(today, withinDays);
+  return {
+    overdue: open.filter((c) => c.due && c.due < today),
+    dueSoon: open.filter((c) => c.due && c.due >= today && c.due <= limit),
+    noDue: open.filter((c) => !c.due),
+  };
+}

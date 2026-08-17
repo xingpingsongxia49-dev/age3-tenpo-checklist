@@ -7,12 +7,14 @@ import { CATEGORIES } from "@/lib/checklist";
 import { useEnsureTodayInspection } from "@/lib/hooks";
 import {
   answerOf,
+  batsuStreak,
   compareJudgement,
   findPrevious,
   isFixed,
   itemsForStore,
   pct,
   summarize,
+  unconfirmedPreviousBatsu,
   VERDICT_LABEL,
 } from "@/lib/score";
 import { copyText, reportText } from "@/lib/export";
@@ -23,7 +25,7 @@ import { PrintPortal } from "./PrintPortal";
 import { todayISO, useStore } from "@/lib/store";
 import { EMPTY_ANSWER, type StoreName } from "@/lib/types";
 
-type Filter = "all" | "todo" | "issue";
+type Filter = "all" | "todo" | "issue" | "prevNg" | "streak";
 
 export function StorePanel({ store }: { store: StoreName }) {
   const { data, ready, updateInspection, updateAnswer, resetInspection } = useStore();
@@ -59,10 +61,22 @@ export function StorePanel({ store }: { store: StoreName }) {
     setTimeout(() => setFlash(""), 2400);
   };
 
+  // 同じ項目が何回連続で×か。2回以上なら基準そのものを疑う
+  const streaks = new Map(
+    items.map((i) => [i.id, batsuStreak(data.inspections, inspection, i.id)] as const),
+  );
+  const repeated = items.filter((i) => (streaks.get(i.id) ?? 0) >= 2);
+
+  // 前回×だったのに今回まだ見ていない項目
+  const unconfirmed = unconfirmedPreviousBatsu(data.inspections, inspection);
+  const unconfirmedIds = new Set(unconfirmed.map((i) => i.id));
+
   const visible = items.filter((item) => {
     const j = answerOf(inspection, item.id).judgement;
     if (filter === "todo") return j === null;
     if (filter === "issue") return j === "×" || j === "△";
+    if (filter === "prevNg") return unconfirmedIds.has(item.id);
+    if (filter === "streak") return (streaks.get(item.id) ?? 0) >= 2;
     return true;
   });
 
@@ -76,6 +90,17 @@ export function StorePanel({ store }: { store: StoreName }) {
   }
   if (s.missingDue > 0) {
     warnings.push({ text: `担当または期限が未記入の×が${s.missingDue}件あります。空欄のまま店を出ない。` });
+  }
+  if (unconfirmed.length > 0) {
+    warnings.push({
+      text: `前回×だった項目のうち${unconfirmed.length}件がまだ未入力です。是正できたかを必ず確認する。`,
+      strong: true,
+    });
+  }
+  if (repeated.length > 0) {
+    warnings.push({
+      text: `2回以上続けて×の項目が${repeated.length}件あります。現場を叱っても直りません。基準が決まっているかを本部・店長側で確認する。`,
+    });
   }
   if (s.batsu + s.sankaku > 0) {
     warnings.push({ text: `要改善は×${s.batsu}件・△${s.sankaku}件です。` });
@@ -188,19 +213,25 @@ export function StorePanel({ store }: { store: StoreName }) {
       </div>
 
       {/* 絞り込み */}
-      <div className="mt-3 flex gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-1.5">
         {(
           [
             ["all", `すべて ${items.length}`],
             ["todo", `未入力 ${s.unanswered}`],
             ["issue", `要改善 ${s.batsu + s.sankaku}`],
+            ...(unconfirmed.length > 0
+              ? ([["prevNg", `前回×が未入力 ${unconfirmed.length}`]] as [Filter, string][])
+              : []),
+            ...(repeated.length > 0
+              ? ([["streak", `連続× ${repeated.length}`]] as [Filter, string][])
+              : []),
           ] as [Filter, string][]
         ).map(([key, label]) => (
           <button
             key={key}
             type="button"
             onClick={() => setFilter(key)}
-            className={`chip min-h-[38px] flex-1 px-2 text-[12px] font-bold ${
+            className={`chip min-h-[38px] flex-1 whitespace-nowrap px-2 text-[12px] font-bold ${
               filter === key ? "chip-on" : ""
             }`}
           >
@@ -262,6 +293,7 @@ export function StorePanel({ store }: { store: StoreName }) {
                     inspectionId={inspection.id}
                     prevAnswer={previous ? (previous.answers[item.id] ?? EMPTY_ANSWER) : undefined}
                     prevDate={previous?.date}
+                    streak={streaks.get(item.id) ?? 0}
                   />
                 ))}
               </ul>

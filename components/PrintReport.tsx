@@ -12,14 +12,17 @@
 import { usePhotoUrls } from "@/lib/store";
 import {
   answerOf,
+  batsuStreak,
   collectCorrections,
   compareJudgement,
+  dueSummary,
   findPrevious,
   hasAnswers,
   isFixed,
   itemsForStore,
   pct,
   summarize,
+  unconfirmedPreviousBatsu,
   VERDICT_LABEL,
   type Summary,
 } from "@/lib/score";
@@ -172,6 +175,13 @@ export function StoreReport({
   const issues = allIssues.slice(0, MAX_ISSUE_ROWS);
   const omitted = allIssues.length - issues.length;
 
+  // 毎回同じ×が並ぶ項目と、前回×のまま未確認の項目を明示する
+  const streaks = new Map(
+    items.map((i) => [i.id, batsuStreak(all, inspection, i.id)] as const),
+  );
+  const repeated = items.filter((i) => (streaks.get(i.id) ?? 0) >= 2);
+  const unconfirmed = unconfirmedPreviousBatsu(all, inspection);
+
   const fixedItems = previous
     ? items.filter((i) =>
         isFixed(previous.answers[i.id]?.judgement ?? null, answerOf(inspection, i.id).judgement),
@@ -274,6 +284,24 @@ export function StoreReport({
         <p className="pr-alert">
           S項目（食品衛生・食品安全・行政/近隣リスク）の×が{s.criticalBatsu}件。総合何%でも赤。
           他を中断して、その場で是正する。営業を止める判断も含めて検討する。
+        </p>
+      )}
+      {unconfirmed.length > 0 && (
+        <p className="pr-alert">
+          前回×だった項目のうち{unconfirmed.length}件が未入力のままです。
+          是正できたかを確認していないため、この報告書では「直ったか不明」として扱う。
+          {unconfirmed
+            .slice(0, 4)
+            .map((i) => `${i.id}. ${i.text}`)
+            .join("／")}
+          {unconfirmed.length > 4 && `　ほか${unconfirmed.length - 4}件`}
+        </p>
+      )}
+      {repeated.length > 0 && (
+        <p className="pr-caution">
+          2回以上続けて×の項目が{repeated.length}件あります。
+          毎回同じ×が並ぶ項目は、現場の能力ではなく基準が決まっていないことが原因のことが多い。
+          現場を叱る前に、本部・店長側で基準の有無を確認する。
         </p>
       )}
       {s.unanswered > 0 && (
@@ -507,10 +535,13 @@ export function StoreReport({
                       <span className="pr-card-hint">△は是正担当・期限の記入対象外</span>
                     )}
                   </p>
-                  {(prevJudgement || worsened) && (
+                  {(prevJudgement || worsened || (streaks.get(item.id) ?? 0) >= 2) && (
                     <p className="pr-card-tags">
                       {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
                       {worsened && <span className="pr-tag is-ng">悪化</span>}
+                      {(streaks.get(item.id) ?? 0) >= 2 && (
+                        <span className="pr-tag is-ng">{streaks.get(item.id)}回連続×</span>
+                      )}
                     </p>
                   )}
                 </div>
@@ -576,7 +607,8 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
   const allCorrections = collectCorrections(all, issuedOn).filter((c) => c.status !== "完了");
   const corrections = allCorrections.slice(0, MAX_LEDGER_ROWS);
   const omitted = allCorrections.length - corrections.length;
-  const overdue = allCorrections.filter((c) => c.status === "期限切れ").length;
+  const due = dueSummary(all, issuedOn);
+  const overdue = due.overdue.length;
 
   const history = all
     .filter(hasAnswers)
@@ -631,6 +663,20 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
             unit="件"
             alert={overdue > 0}
             ink={overdue > 0 ? INK.ng : undefined}
+          />
+          <Kpi
+            label="期限が3日以内"
+            value={`${due.dueSoon.length}`}
+            unit="件"
+            alert={due.dueSoon.length > 0}
+            ink={due.dueSoon.length > 0 ? INK.mid : undefined}
+          />
+          <Kpi
+            label="期限が未記入"
+            value={`${due.noDue.length}`}
+            unit="件"
+            alert={due.noDue.length > 0}
+            ink={due.noDue.length > 0 ? INK.ng : undefined}
           />
         </div>
       </div>

@@ -37,12 +37,15 @@ export function ItemRow({
   inspectionId,
   prevAnswer,
   prevDate,
+  streak = 0,
 }: {
   item: ChecklistItem;
   answer: Answer;
   inspectionId: string;
   prevAnswer?: Answer;
   prevDate?: string;
+  /** 今回を含めて何回連続で×か。2以上なら現場ではなく基準の問題を疑う */
+  streak?: number;
 }) {
   const { updateAnswer, addPhoto, removePhoto } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -65,6 +68,19 @@ export function ItemRow({
         <WeightBadge w={item.weight} />
         {prevAnswer?.judgement && answer.judgement && (
           <ChangeBadge change={change} fixed={fixed} />
+        )}
+        {streak >= 2 && (
+          <span
+            className="rounded-full px-2 py-[1px] text-[11px] font-bold"
+            style={{
+              background: JUDGEMENT_COLOR["×"].bg,
+              color: JUDGEMENT_COLOR["×"].ink,
+              border: `1px solid ${JUDGEMENT_COLOR["×"].ink}`,
+            }}
+            title="毎回同じ×が並ぶ項目は、現場の能力ではなく基準が決まっていないことが原因のことが多い"
+          >
+            {streak}回連続×
+          </span>
         )}
         {prevAnswer?.judgement && (
           <span className="text-[11px] text-[var(--color-sub)]">
