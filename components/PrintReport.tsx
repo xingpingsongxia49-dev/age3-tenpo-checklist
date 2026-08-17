@@ -93,13 +93,11 @@ function Kpi({
 
 function PhotoCell({
   url,
-  no,
   judgement,
   caption,
   note,
 }: {
   url?: string;
-  no: number;
   judgement: string | null;
   caption: string;
   note?: string;
@@ -112,7 +110,6 @@ function PhotoCell({
         {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {url && <img src={url} alt={caption} />}
-        <span className="pr-photo-no">写真{no}</span>
         {judgement && (
           <span className="pr-photo-judge" style={{ background: ink }}>
             判定 {judgement}
@@ -124,24 +121,6 @@ function PhotoCell({
         {note && <span className="pr-photo-note">{note}</span>}
       </figcaption>
     </figure>
-  );
-}
-
-/** 要改善一覧の行に置く証跡サムネイル。指摘のすぐ横に現物を出す */
-function RowThumbs({ urls, nos }: { urls: (string | undefined)[]; nos: number[] }) {
-  if (urls.length === 0) return <span className="pr-nothumb">—</span>;
-  return (
-    <span className="pr-thumbs">
-      {urls.slice(0, 1).map((u, i) => (
-        <span key={i} className="pr-thumb">
-          {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {u && <img src={u} alt="" />}
-          <span className="pr-thumb-no">{nos[i]}</span>
-        </span>
-      ))}
-      {urls.length > 1 && <span className="pr-thumb-more">+{urls.length - 1}</span>}
-    </span>
   );
 }
 
@@ -200,29 +179,36 @@ export function StoreReport({
     : [];
   const worsenedCount = allIssues.filter((r) => r.worsened).length;
 
-  // 写真は判定に関わらず全項目から集める。×→△→その他、同じ判定なら項目番号順。
-  const judgeRank: Record<string, number> = { "×": 0, "△": 1, "○": 2, 対象外: 3 };
-  const allPhotos = items
+  // 要改善の写真はカード内に出す。カードに載らなかった項目（○・対象外、
+  // および掲載枠から外れた要改善）の写真は落とさず「そのほかの写真」に回す。
+  const cardIds = new Set(issues.map(({ item }) => item.id));
+  const otherPhotos = items
+    .filter((i) => !cardIds.has(i.id))
     .map((item) => ({ item, a: answerOf(inspection, item.id) }))
     .filter(({ a }) => a.photos.length > 0)
-    .sort(
-      (x, y) =>
-        (judgeRank[x.a.judgement ?? "○"] ?? 9) - (judgeRank[y.a.judgement ?? "○"] ?? 9) ||
-        x.item.id - y.item.id,
-    )
     .flatMap(({ item, a }) =>
       a.photos.map((pid, i) => ({ pid, item, a, index: i, total: a.photos.length })),
     );
 
-  const photos = includePhotos ? allPhotos.slice(0, MAX_PHOTOS) : [];
-  const photoOmitted = includePhotos ? allPhotos.length - photos.length : 0;
-
-  // 要改善の行から「写真3・4」と参照できるよう、写真IDに通し番号を振る
-  const photoNo = new Map(photos.map((p, i) => [p.pid, i + 1] as const));
+  const issuePhotoIds = includePhotos
+    ? issues.flatMap(({ a }) => a.photos).slice(0, MAX_PHOTOS)
+    : [];
+  const refPhotos = includePhotos
+    ? otherPhotos.slice(0, Math.max(0, MAX_PHOTOS - issuePhotoIds.length))
+    : [];
+  const photoOmitted = includePhotos
+    ? issues.flatMap(({ a }) => a.photos).length +
+      otherPhotos.length -
+      issuePhotoIds.length -
+      refPhotos.length
+    : 0;
 
   // 写真は端末内(IndexedDB)から非同期に読む。全部そろう前に印刷すると
   // 空枠のまま出てしまうので、揃ったことを data-photos-ready で外に伝える。
-  const { urls, ready: photosReady } = usePhotoUrls(photos.map((p) => p.pid));
+  const { urls, ready: photosReady } = usePhotoUrls([
+    ...issuePhotoIds,
+    ...refPhotos.map((p) => p.pid),
+  ]);
 
   return (
     <div className="pr-doc pr-sheet" data-photos-ready={photosReady ? "true" : "false"}>
@@ -446,74 +432,92 @@ export function StoreReport({
         </>
       )}
 
-      {/* 3. 要改善 */}
+      {/* 3. 要改善（写真主体のカード。写真の下に詳細をテキストで置く） */}
       <h2 className="pr-h2">
-        {previous ? "3" : "2"}. 要改善一覧（×と△／{allIssues.length}件
+        {previous ? "3" : "2"}. 要改善（×と△／{allIssues.length}件
         {omitted > 0 ? `　※重要度の高い${issues.length}件を掲載` : ""}）
       </h2>
       {allIssues.length === 0 ? (
         <p className="pr-empty">×・△の項目はありません。</p>
       ) : (
-        <table className="pr-table pr-issue">
-          <thead>
-            <tr>
-              <th className="w-no">No</th>
-              <th className="w-j">判定</th>
-              <th className="w-w">重要度</th>
-              <th className="w-cat2">カテゴリ</th>
-              <th>チェック項目／確認した事実</th>
-              <th className="w-thumb">写真</th>
-              <th className="w-own">担当</th>
-              <th className="w-due">期限</th>
-            </tr>
-          </thead>
-          <tbody>
-            {issues.map(({ item, a, prevJudgement, worsened }) => (
-              <tr key={item.id}>
-                <td className="w-no">{item.id}</td>
-                <td
-                  className="w-j pr-strong"
-                  style={{ color: a.judgement === "×" ? INK.ng : INK.mid }}
-                >
-                  {a.judgement}
-                </td>
-                <td className="w-w" style={{ color: item.weight === "S" ? INK.ng : undefined }}>
-                  {item.weight}
-                </td>
-                <td className="w-cat2">{item.category}</td>
-                <td>
-                  <span className="pr-item-text">{item.text}</span>
-                  <span className="pr-fact">
-                    {a.note && <span className="pr-fact-text">事実：{a.note}</span>}
-                    {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
-                    {worsened && <span className="pr-tag is-ng">悪化</span>}
-                    {a.photos.length > 0 && !includePhotos && (
-                      <span className="pr-tag">写真{a.photos.length}枚</span>
+        <div className="pr-cards">
+          {issues.map(({ item, a, prevJudgement, worsened }) => {
+            const shots = includePhotos
+              ? a.photos.filter((pid) => urls.has(pid)).map((pid) => urls.get(pid)!)
+              : [];
+            const ink = a.judgement === "×" ? INK.ng : INK.mid;
+            return (
+              <article className="pr-card" key={item.id}>
+                {shots.length > 0 ? (
+                  <div className={`pr-card-shots${shots.length > 1 ? " is-multi" : ""}`}>
+                    {shots.slice(0, 2).map((u, i) => (
+                      <span className="pr-card-shot" key={i}>
+                        {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="" />
+                      </span>
+                    ))}
+                    {shots.length > 2 && (
+                      <span className="pr-card-more">ほか{shots.length - 2}枚</span>
                     )}
-                  </span>
-                </td>
-                <td className="w-thumb">
-                  <RowThumbs
-                    urls={a.photos.filter((pid) => photoNo.has(pid)).map((pid) => urls.get(pid))}
-                    nos={a.photos
-                      .map((pid) => photoNo.get(pid))
-                      .filter((n): n is number => n !== undefined)}
-                  />
-                </td>
-                <td className="w-own">
-                  {a.judgement === "×" ? (
-                    a.owner || <span style={{ color: INK.ng }}>未記入</span>
-                  ) : (
-                    "—"
+                    <span className="pr-card-judge" style={{ background: ink }}>
+                      {a.judgement}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="pr-card-noshot" style={{ borderColor: ink, color: ink }}>
+                    <span className="pr-card-noshot-j">{a.judgement}</span>
+                    <span className="pr-card-noshot-t">写真なし</span>
+                  </div>
+                )}
+
+                <div className="pr-card-body">
+                  <p className="pr-card-meta">
+                    <span
+                      className="pr-card-w"
+                      style={
+                        item.weight === "S"
+                          ? { background: INK.ng, color: "#fff" }
+                          : undefined
+                      }
+                    >
+                      重要度{item.weight}
+                    </span>
+                    <span className="pr-card-cat">{item.category}</span>
+                  </p>
+                  <p className="pr-card-title">
+                    <span className="pr-card-no">{item.id}.</span>
+                    {item.text}
+                  </p>
+                  {a.note && <p className="pr-card-fact">事実：{a.note}</p>}
+                  <p className="pr-card-fix">
+                    {a.judgement === "×" ? (
+                      <>
+                        担当：
+                        <span className={a.owner ? "pr-strong" : "pr-missing"}>
+                          {a.owner || "未記入"}
+                        </span>
+                        　期限：
+                        <span className={a.due ? "pr-strong" : "pr-missing"}>
+                          {a.due || "未記入"}
+                        </span>
+                        {a.doneAt && <>　完了：{a.doneAt}</>}
+                      </>
+                    ) : (
+                      <span className="pr-card-hint">△は是正担当・期限の記入対象外</span>
+                    )}
+                  </p>
+                  {(prevJudgement || worsened) && (
+                    <p className="pr-card-tags">
+                      {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
+                      {worsened && <span className="pr-tag is-ng">悪化</span>}
+                    </p>
                   )}
-                </td>
-                <td className="w-due">
-                  {a.judgement === "×" ? a.due || <span style={{ color: INK.ng }}>未記入</span> : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       )}
       {omitted > 0 && (
         <p className="pr-omit">
@@ -521,30 +525,32 @@ export function StoreReport({
           全件はアプリの「要改善」またはCSV書き出しで確認してください。
         </p>
       )}
+      {photoOmitted > 0 && (
+        <p className="pr-omit">
+          写真ほか{photoOmitted}枚はアプリの各項目で確認してください。
+        </p>
+      )}
 
-      {/* 4. 現場写真（本編の後ろに別ページで付ける） */}
-      {photos.length > 0 && (
-        <section className="pr-photo-section">
+      {refPhotos.length > 0 && (
+        <>
           <h2 className="pr-h2">
-            {previous ? "4" : "3"}. 現場写真（{allPhotos.length}枚
-            {photoOmitted > 0 ? `　※${photos.length}枚を掲載` : ""}）
+            {previous ? "4" : "3"}. そのほかの写真（{refPhotos.length}枚）
           </h2>
+          <p className="pr-foot-note">
+            上のカードに載らなかった項目の写真。○・対象外の項目と、掲載枠から外れた要改善が入る。
+          </p>
           <div className="pr-photos">
-            {photos.map(({ pid, item, a, index, total }) => (
+            {refPhotos.map(({ pid, item, a, index, total }) => (
               <PhotoCell
                 key={pid}
                 url={urls.get(pid)}
-                no={photoNo.get(pid) ?? 0}
                 judgement={a.judgement}
                 caption={`${item.id}. ${item.text}${total > 1 ? `（${index + 1}/${total}）` : ""}`}
                 note={a.note}
               />
             ))}
           </div>
-          {photoOmitted > 0 && (
-            <p className="pr-omit">ほか{photoOmitted}枚はアプリの各項目で確認してください。</p>
-          )}
-        </section>
+        </>
       )}
 
       <p className="pr-foot-note">
