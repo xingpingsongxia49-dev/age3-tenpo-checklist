@@ -154,9 +154,10 @@ textarea {
 }
 
 /* ==================================================================
- * 報告書（A4）。画面には出さず、印刷＝PDF保存のときだけ表示する。
+ * 報告書（A4 1枚）。画面には出さず、印刷＝PDF保存のときだけ表示する。
  * ブラウザの「PDFとして保存」を使うので文字が選択でき、
  * 日本語フォントを埋め込む必要がない（端末のゴシック体をそのまま使う）。
+ * 1枚に収めるため、行の高さと行数を固定している。
  * ================================================================== */
 
 .print-only {
@@ -165,8 +166,8 @@ textarea {
 
 @media print {
   @page {
-    size: A4;
-    margin: 12mm 10mm 14mm;
+    size: A4 portrait;
+    margin: 8mm 8mm 7mm;
   }
 
   html,
@@ -189,11 +190,20 @@ textarea {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* 1枚に収めるので、どこでも改ページさせない */
+  .pr-a4,
+  .pr-a4 * {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
+  }
 }
 
 .pr-doc {
   /* 先頭は指定どおり。末尾の日本語ゴシックは、Apple以外の端末で
-     中国語フォント（WenQuanYi等）に落ちて漢字が中国語字形になるのを防ぐための保険。
+     中国語フォント（WenQuanYi等）に落ちて漢字が中国語字形になるのを防ぐ保険。
      明朝は一切入れない。 */
   font-family:
     -apple-system,
@@ -208,161 +218,158 @@ textarea {
     IPAPGothic,
     sans-serif;
   color: #111;
-  font-size: 9pt;
-  line-height: 1.5;
+  font-size: 7.6pt;
+  line-height: 1.35;
+}
+
+/* A4の刷り面（210-16 × 297-15）。ここを超えたら2枚目に落ちるので、
+   行数の上限（PrintReport.tsx の MAX_*_ROWS）と合わせて調整する。 */
+.pr-a4 {
+  width: 194mm;
+  max-height: 282mm;
+  overflow: hidden;
 }
 
 .pr-head {
   display: flex;
-  align-items: flex-end;
-  gap: 8mm;
-  border-bottom: 2px solid #3e2c23;
-  padding-bottom: 2mm;
-  margin-bottom: 4mm;
+  align-items: baseline;
+  gap: 3mm;
+  border-bottom: 1.6pt solid #3e2c23;
+  padding-bottom: 1.4mm;
+  margin-bottom: 2.4mm;
 }
 
 .pr-brand {
-  font-size: 8pt;
+  font-size: 7pt;
   font-weight: 700;
   letter-spacing: 0.12em;
   color: #8a6d22;
 }
 
 .pr-head h1 {
-  font-size: 15pt;
+  font-size: 13pt;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+}
+
+.pr-head-meta {
+  font-size: 9pt;
+  font-weight: 700;
 }
 
 .pr-head-sub {
   margin-left: auto;
-  font-size: 8pt;
+  font-size: 7pt;
   color: #666;
 }
 
-.pr-meta {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 4mm;
-  font-size: 8.5pt;
-}
+/* ---- 要約 ---- */
 
-.pr-meta th,
-.pr-meta td {
-  border: 0.5pt solid #ccc;
-  padding: 1.4mm 2mm;
-  text-align: left;
-}
-
-.pr-meta th {
-  background: #f5f1ec;
-  font-weight: 700;
-  white-space: nowrap;
-  width: 18mm;
-}
-
-.pr-score {
+.pr-summary {
   display: flex;
-  gap: 5mm;
-  align-items: stretch;
-  margin-bottom: 4mm;
-  page-break-inside: avoid;
+  gap: 3mm;
+  margin-bottom: 2.4mm;
 }
 
 .pr-score-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   border: 1pt solid #3e2c23;
-  border-radius: 2mm;
-  padding: 3mm 4mm;
-  min-width: 52mm;
-  text-align: center;
+  border-radius: 1.6mm;
+  padding: 1.6mm 3mm;
+  width: 44mm;
+  flex: none;
 }
 
 .pr-label {
-  font-size: 8pt;
+  font-size: 6.4pt;
   color: #666;
 }
 
 .pr-score-value {
-  font-size: 30pt;
+  font-size: 26pt;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.05;
 }
 
 .pr-verdict {
-  font-size: 10pt;
+  font-size: 8.4pt;
   font-weight: 700;
 }
 
-.pr-note {
-  font-size: 8pt;
-  color: #666;
-  margin-top: 1mm;
-}
-
-.pr-kpi {
+.pr-kpi-grid {
   flex: 1;
-  border-collapse: collapse;
-  font-size: 8.5pt;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1mm;
 }
 
-.pr-kpi th,
-.pr-kpi td {
+.pr-kpi-cell {
   border: 0.5pt solid #ccc;
-  padding: 1.4mm 2mm;
-  text-align: left;
+  border-radius: 1mm;
+  background: #faf8f6;
+  padding: 0.8mm 1mm;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.pr-kpi th {
-  background: #f5f1ec;
+.pr-kpi-cell.is-alert {
+  border-color: #a33a2e;
+  background: #fbeeec;
+}
+
+.pr-kpi-label {
+  font-size: 6.2pt;
+  color: #666;
+  line-height: 1.2;
+}
+
+.pr-kpi-value {
+  font-size: 11pt;
   font-weight: 700;
-  white-space: nowrap;
-}
-
-.pr-kpi td {
-  font-weight: 700;
-}
-
-.pr-kpi td span {
-  margin-right: 3mm;
+  line-height: 1.15;
 }
 
 .pr-alert {
-  border: 1pt solid #a33a2e;
+  border: 0.8pt solid #a33a2e;
   background: #fbeeec;
   color: #a33a2e;
   font-weight: 700;
-  border-radius: 2mm;
-  padding: 2.5mm 3mm;
-  margin-bottom: 4mm;
-  font-size: 9pt;
-  page-break-inside: avoid;
+  border-radius: 1.4mm;
+  padding: 1.2mm 2mm;
+  margin-bottom: 2.4mm;
+  font-size: 7.6pt;
+  line-height: 1.35;
 }
+
+/* ---- 見出し・表 ---- */
 
 .pr-h2 {
-  font-size: 10.5pt;
+  font-size: 8.6pt;
   font-weight: 700;
-  border-left: 1.4mm solid #3e2c23;
-  padding-left: 2mm;
-  margin: 5mm 0 2mm;
-  page-break-after: avoid;
-}
-
-.pr-break {
-  page-break-before: always;
+  border-left: 1.2mm solid #3e2c23;
+  padding-left: 1.6mm;
+  margin: 2.4mm 0 1.2mm;
 }
 
 .pr-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 8.5pt;
+  table-layout: fixed;
+  font-size: 7.2pt;
 }
 
 .pr-table th,
 .pr-table td {
-  border: 0.5pt solid #ccc;
-  padding: 1.2mm 1.6mm;
-  vertical-align: top;
+  border: 0.4pt solid #ccc;
+  padding: 0.7mm 1mm;
+  vertical-align: middle;
   text-align: left;
+  overflow: hidden;
 }
 
 .pr-table thead th {
@@ -373,43 +380,46 @@ textarea {
   text-align: center;
 }
 
-.pr-table tbody tr {
-  page-break-inside: avoid;
-}
-
 .pr-table tbody tr:nth-child(even) {
   background: #faf8f6;
 }
 
-.pr-table .pr-group td {
-  background: #ece5dd;
-  font-weight: 700;
+/* 行の高さを固定して、1枚に収まる総量を読めるようにする */
+.pr-cat tbody tr {
+  height: 4.6mm;
 }
 
-.pr-table-sm {
-  font-size: 7.5pt;
+.pr-issue tbody tr {
+  height: 7.4mm;
 }
 
-/* 列幅。印刷で折り返しが暴れないよう固定気味にする */
-.w-cat { width: 34mm; }
-.w-cat2 { width: 28mm; }
-.w-num { width: 8mm; text-align: center !important; }
-.w-rate { width: 14mm; text-align: right !important; white-space: nowrap; }
-.w-bar { width: 26mm; }
-.w-j { width: 11mm; text-align: center !important; white-space: nowrap; }
+.pr-issue td {
+  vertical-align: top;
+}
+
+/* 列幅 */
+.w-cat { width: 33mm; }
+.w-cat2 { width: 27mm; }
+.w-num { width: 7.5mm; text-align: center !important; }
+.w-rate { width: 12mm; text-align: right !important; white-space: nowrap; }
+.w-bar { width: 24mm; }
+.w-bar3 { width: 34mm; }
+.w-j { width: 7mm; text-align: center !important; }
 .w-w { width: 10mm; text-align: center !important; font-weight: 700; }
-.w-own { width: 16mm; }
-.w-due { width: 18mm; white-space: nowrap; }
-.w-no { width: 7mm; text-align: center !important; }
-.w-note { width: 40mm; }
-.w-store { width: 12mm; }
+.w-own { width: 13mm; }
+.w-due { width: 16mm; white-space: nowrap; }
+.w-store { width: 11mm; }
+.w-verdict { width: 17mm; white-space: nowrap; }
 
 .pr-bar {
-  height: 2.2mm;
+  height: 1.8mm;
   background: #efe9e3;
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 1mm;
+}
+
+.pr-bar + .pr-bar {
+  margin-top: 0.5mm;
 }
 
 .pr-bar > span {
@@ -419,63 +429,51 @@ textarea {
   background: linear-gradient(90deg, #6b4e3a, #3e2c23);
 }
 
+/* 1行に切り詰める。行が伸びると1枚に収まらなくなる */
+.pr-clamp1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .pr-item-text {
-  display: block;
+  font-weight: 500;
 }
 
 .pr-fact {
-  display: block;
   color: #555;
-  font-size: 7.5pt;
-  margin-top: 0.6mm;
+  font-size: 6.6pt;
+  margin-top: 0.3mm;
 }
 
 .pr-worse {
   display: inline-block;
-  margin-top: 0.6mm;
-  border: 0.5pt solid #a33a2e;
+  border: 0.4pt solid #a33a2e;
   color: #a33a2e;
   border-radius: 999px;
-  padding: 0 1.4mm;
-  font-size: 7pt;
+  padding: 0 1mm;
+  font-size: 6pt;
   font-weight: 700;
+  line-height: 1.5;
 }
 
 .pr-empty {
-  font-size: 9pt;
+  font-size: 7.6pt;
   color: #666;
-  padding: 2mm 0;
+  padding: 1.2mm 0;
+}
+
+.pr-omit {
+  font-size: 6.8pt;
+  color: #a33a2e;
+  margin-top: 1mm;
 }
 
 .pr-foot-note {
-  font-size: 7.5pt;
+  font-size: 6.4pt;
   color: #666;
-  margin-top: 2mm;
-  line-height: 1.6;
-}
-
-.pr-photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4mm;
-}
-
-.pr-photo {
-  width: 56mm;
-  page-break-inside: avoid;
-}
-
-.pr-photo img {
-  width: 100%;
-  height: 42mm;
-  object-fit: cover;
-  border: 0.5pt solid #ccc;
-  border-radius: 1.5mm;
-}
-
-.pr-photo figcaption {
-  font-size: 7pt;
-  color: #555;
-  margin-top: 1mm;
-  line-height: 1.4;
+  margin-top: 1.6mm;
+  line-height: 1.45;
 }
