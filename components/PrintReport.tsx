@@ -32,7 +32,7 @@ import type { Answer, ChecklistItem, Inspection } from "@/lib/types";
 const INK = { ok: "#2F6B46", mid: "#8A6D22", ng: "#A33A2E", na: "#8A7A6D" };
 
 /** 本編（表と集計）を2枚に収めるための上限。超えた分は件数だけ明記して落とす */
-const MAX_ISSUE_ROWS = 15;
+const MAX_ISSUE_ROWS = 16;
 const MAX_LEDGER_ROWS = 16;
 const MAX_HISTORY_ROWS = 8;
 
@@ -460,8 +460,9 @@ export function StoreReport({
         </>
       )}
 
-      {/* 3. 要改善（写真主体のカード。写真の下に詳細をテキストで置く） */}
-      <h2 className="pr-h2">
+      {/* 3. 要改善（写真主体のカード。写真の下に詳細をテキストで置く）
+          1ページ8枚（2列×4段）に揃えるため、必ずページの頭から始める */}
+      <h2 className="pr-h2 pr-h2-break">
         {previous ? "3" : "2"}. 要改善（×と△／{allIssues.length}件
         {omitted > 0 ? `　※重要度の高い${issues.length}件を掲載` : ""}）
       </h2>

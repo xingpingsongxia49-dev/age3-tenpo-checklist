@@ -398,6 +398,13 @@ textarea {
 
 /* ---- 見出し・表 ---- */
 
+/* 要改善は必ずページの頭から始める。途中から始まると1ページ8枚が崩れる */
+.pr-h2-break {
+  page-break-before: always;
+  break-before: page;
+  margin-top: 0;
+}
+
 .pr-h2 {
   font-size: 10pt;
   font-weight: 700;
@@ -665,10 +672,13 @@ textarea {
  * 店長に見せたときに「どこの何か」がすぐ伝わる。
  * ================================================================== */
 
+/* 1ページちょうど8枚（2列×4段）。カードの高さを固定して段数を確定させる。
+   A4の刷り面 約276mm から見出しぶんを引き、4段＋段間に収まる高さにする。
+   61mm×4段 + 4mm×3 = 256mm。見出し(約10mm)を足しても余裕がある。 */
 .pr-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4mm 3.5mm;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4mm;
 }
 
 .pr-card {
@@ -678,6 +688,9 @@ textarea {
   page-break-inside: avoid;
   break-inside: avoid;
   background: #fff;
+  height: 61mm;
+  display: flex;
+  flex-direction: column;
 }
 
 .pr-card-shots {
@@ -693,13 +706,9 @@ textarea {
 
 .pr-card-shot img {
   width: 100%;
-  height: 40mm;
+  height: 32mm;
   object-fit: cover;
   display: block;
-}
-
-.pr-card-shots.is-multi .pr-card-shot img {
-  height: 40mm;
 }
 
 .pr-card-judge {
@@ -733,7 +742,8 @@ textarea {
   align-items: center;
   gap: 2mm;
   border-bottom: 0.6pt solid currentColor;
-  padding: 1.6mm 2.2mm;
+  padding: 1.6mm 2.4mm;
+  flex: none;
 }
 
 .pr-card-noshot-j {
@@ -746,8 +756,14 @@ textarea {
   font-size: 7pt;
 }
 
+/* 残りの高さを本文に割り当てる。はみ出す分は各要素の行数制限で切る */
 .pr-card-body {
-  padding: 1.6mm 2.2mm 2.2mm;
+  padding: 1.6mm 2.4mm 2mm;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .pr-card-meta {
@@ -778,9 +794,14 @@ textarea {
 }
 
 .pr-card-title {
-  font-size: 7.8pt;
+  font-size: 8.2pt;
   font-weight: 700;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .pr-card-no {
@@ -789,19 +810,30 @@ textarea {
   margin-right: 0.8mm;
 }
 
+/* メモ（確認した事実）。2列にしてカードが広くなったぶん、3行まで見せる */
 .pr-card-fact {
-  font-size: 7pt;
-  color: #444;
-  line-height: 1.4;
-  margin-top: 0.8mm;
+  font-size: 7.4pt;
+  color: #333;
+  line-height: 1.45;
+  margin-top: 0.9mm;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .pr-card-fix {
-  font-size: 7pt;
+  font-size: 7.2pt;
   color: #333;
   margin-top: 1mm;
   border-top: 0.4pt dotted #ddd6cd;
   padding-top: 0.8mm;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pr-missing {
@@ -814,7 +846,9 @@ textarea {
 }
 
 .pr-card-tags {
-  margin-top: 0.8mm;
+  margin-top: 0.6mm;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* 印刷の刷り面が狭く組まれた端末では、3列だと1枚あたりが小さくなりすぎる */
