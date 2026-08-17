@@ -144,15 +144,6 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-@media print {
-  body {
-    background: #fff;
-  }
-  .no-print {
-    display: none !important;
-  }
-}
-
 /* ==================================================================
  * 報告書（A4・最大2枚）。画面には出さず、印刷＝PDF保存のときだけ表示する。
  * ブラウザの「PDFとして保存」を使うので文字が選択でき、
@@ -176,13 +167,31 @@ textarea {
     color: #111 !important;
   }
 
-  /* 画面用UIは全部隠し、報告書だけを出す */
+  /* 用紙に合わせて組ませる。iOS Safari は印刷時にビューポート幅で
+     組むことがあるので、高さ・余白・固定背景を明示的に解除しておく */
+  html,
+  body {
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-attachment: initial !important;
+    overflow: visible !important;
+  }
+
+  /* 画面用UIは全部隠し、報告書だけを出す。
+     クラス名に依存せず body 直下で切るので、ラッパーが増えても漏れない */
+  body > *:not(.print-only) {
+    display: none !important;
+  }
+
   .app-shell {
     display: none !important;
   }
 
   .print-only {
     display: block !important;
+    width: 100% !important;
   }
 
   /* 背景色・バーが印刷でも出るようにする */
@@ -235,8 +244,12 @@ textarea {
   line-height: 1.45;
 }
 
+/* 固定幅にすると、印刷時にビューポート幅で組むブラウザ（iOS Safari）で
+   紙からはみ出す。刷り面いっぱいに広げ、上限だけ決めておく。 */
 .pr-sheet {
-  width: 190mm;
+  width: 100%;
+  max-width: 190mm;
+  margin: 0 auto;
 }
 
 /* ---- ヘッダー ---- */
@@ -802,4 +815,24 @@ textarea {
 
 .pr-card-tags {
   margin-top: 0.8mm;
+}
+
+/* 印刷の刷り面が狭く組まれた端末では、3列だと1枚あたりが小さくなりすぎる */
+@media print and (max-width: 150mm) {
+  .pr-cards,
+  .pr-photos {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pr-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pr-summary {
+    flex-direction: column;
+  }
+
+  .pr-score-main {
+    width: 100%;
+  }
 }
