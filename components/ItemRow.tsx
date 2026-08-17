@@ -57,7 +57,7 @@ export function ItemRow({
   const settled = answer.judgement === "○" || answer.judgement === "対象外";
   const change = compareJudgement(prevAnswer?.judgement ?? null, answer.judgement);
   const fixed = isFixed(prevAnswer?.judgement ?? null, answer.judgement);
-  const showDetail = openNote || isNg || !!answer.note || answer.photos.length > 0;
+  const showNote = openNote || isNg || !!answer.note;
 
   return (
     <li className="border-b border-[var(--color-line)] py-3 last:border-b-0">
@@ -112,109 +112,113 @@ export function ItemRow({
         })}
       </div>
 
-      {!showDetail && (
+      {/* 判定に関わらず、どの項目にも写真とメモを付けられるようにする。
+          良い状態の記録（基準写真）も報告書に載せたいため。 */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          className="hidden"
+          onChange={async (e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = "";
+            if (files.length === 0) return;
+            setBusy(true);
+            for (const file of files) {
+              await addPhoto(inspectionId, item.id, file);
+            }
+            setBusy(false);
+          }}
+        />
         <button
           type="button"
-          onClick={() => setOpenNote(true)}
-          className="mt-2 text-[12px] font-bold text-[var(--color-brown2)] underline"
+          disabled={busy}
+          onClick={() => fileRef.current?.click()}
+          className="chip min-h-[38px] px-3 text-[13px] font-bold disabled:opacity-45"
         >
-          ＋ メモ・写真を追加
+          {busy ? "保存中…" : "📷 写真を追加"}
         </button>
+
+        {!showNote && (
+          <button
+            type="button"
+            onClick={() => setOpenNote(true)}
+            className="chip min-h-[38px] px-3 text-[13px] font-bold"
+          >
+            ＋ メモ
+          </button>
+        )}
+
+        {answer.photos.length > 0 && (
+          <span className="text-[11px] text-[var(--color-sub)]">
+            写真{answer.photos.length}枚（PDFに載ります）
+          </span>
+        )}
+      </div>
+
+      {answer.photos.length > 0 && (
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          {answer.photos.map((pid) => (
+            <Thumb
+              key={pid}
+              photoId={pid}
+              onRemove={() => void removePhoto(inspectionId, item.id, pid)}
+            />
+          ))}
+        </div>
       )}
 
-      {showDetail && (
-        <div className="mt-2 space-y-2">
-          <textarea
-            value={answer.note}
-            onChange={(e) => patch({ note: e.target.value })}
-            rows={2}
-            placeholder="事実を書く（例：レジで一言なし、5組中4組。15:00〜15:20観察）"
-            className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-chip-bg)] p-2.5 text-[14px]"
-          />
+      {showNote && (
+        <textarea
+          value={answer.note}
+          onChange={(e) => patch({ note: e.target.value })}
+          rows={2}
+          placeholder="事実を書く（例：レジで一言なし、5組中4組。15:00〜15:20観察）"
+          className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-chip-bg)] p-2.5 text-[14px]"
+        />
+      )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (!file) return;
-                setBusy(true);
-                await addPhoto(inspectionId, item.id, file);
-                setBusy(false);
-              }}
-            />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => fileRef.current?.click()}
-              className="chip min-h-[38px] px-3 text-[13px] font-bold disabled:opacity-45"
-            >
-              {busy ? "保存中…" : "📷 写真を撮る／選ぶ"}
-            </button>
-            {answer.photos.length > 0 && (
-              <span className="text-[11px] text-[var(--color-sub)]">
-                {answer.photos.length}枚（端末内のみ）
-              </span>
-            )}
+      {isNg && (
+        <div className="notice mt-2 px-3 py-2.5">
+          <p className="mb-2 text-[12px] font-bold">
+            ×をつけたら、その場で担当と期限を埋める。空欄のまま帰らない。
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="text-[11px]">是正担当</span>
+              <input
+                value={answer.owner}
+                onChange={(e) => patch({ owner: e.target.value })}
+                placeholder="店長"
+                className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[11px]">期限</span>
+              <input
+                type="date"
+                value={answer.due}
+                onChange={(e) => patch({ due: e.target.value })}
+                className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
+              />
+            </label>
           </div>
-
-          {answer.photos.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {answer.photos.map((pid) => (
-                <Thumb
-                  key={pid}
-                  photoId={pid}
-                  onRemove={() => void removePhoto(inspectionId, item.id, pid)}
-                />
-              ))}
-            </div>
-          )}
-
-          {isNg && (
-            <div className="notice px-3 py-2.5">
-              <p className="mb-2 text-[12px] font-bold">
-                ×をつけたら、その場で担当と期限を埋める。空欄のまま帰らない。
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block">
-                  <span className="text-[11px]">是正担当</span>
-                  <input
-                    value={answer.owner}
-                    onChange={(e) => patch({ owner: e.target.value })}
-                    placeholder="店長"
-                    className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-[11px]">期限</span>
-                  <input
-                    type="date"
-                    value={answer.due}
-                    onChange={(e) => patch({ due: e.target.value })}
-                    className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
-                  />
-                </label>
-              </div>
-              <label className="mt-2 block">
-                <span className="text-[11px]">完了日（是正が済んだら入れる）</span>
-                <input
-                  type="date"
-                  value={answer.doneAt}
-                  onChange={(e) => patch({ doneAt: e.target.value })}
-                  className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
-                />
-              </label>
-              {needsDetail && (
-                <p className="mt-2 text-[12px] font-bold" style={{ color: "var(--color-ng)" }}>
-                  ⚠ 担当・期限が未記入です
-                </p>
-              )}
-            </div>
+          <label className="mt-2 block">
+            <span className="text-[11px]">完了日（是正が済んだら入れる）</span>
+            <input
+              type="date"
+              value={answer.doneAt}
+              onChange={(e) => patch({ doneAt: e.target.value })}
+              className="mt-0.5 w-full rounded-lg border border-[var(--color-line)] bg-white p-2 text-[14px] text-[var(--color-brown)]"
+            />
+          </label>
+          {needsDetail && (
+            <p className="mt-2 text-[12px] font-bold" style={{ color: "var(--color-ng)" }}>
+              ⚠ 担当・期限が未記入です
+            </p>
           )}
         </div>
       )}

@@ -30,6 +30,7 @@ export function StorePanel({ store }: { store: StoreName }) {
   const inspection = useEnsureTodayInspection(store);
   const [filter, setFilter] = useState<Filter>("all");
   const [flash, setFlash] = useState("");
+  const [withPhotos, setWithPhotos] = useState(true);
   const { printing, print } = usePrint();
 
   const previous = useMemo(
@@ -47,6 +48,10 @@ export function StorePanel({ store }: { store: StoreName }) {
 
   const s = summarize(inspection);
   const items = itemsForStore(store);
+  const photoCount = items.reduce(
+    (n, i) => n + answerOf(inspection, i.id).photos.length,
+    0,
+  );
   const answeredCount = s.total - s.unanswered;
 
   const say = (m: string) => {
@@ -341,6 +346,16 @@ export function StorePanel({ store }: { store: StoreName }) {
         </button>
       </div>
 
+      <label className="mt-2 flex items-center justify-center gap-2 text-[12px] text-[var(--color-sub)]">
+        <input
+          type="checkbox"
+          checked={withPhotos}
+          onChange={(e) => setWithPhotos(e.target.checked)}
+          className="h-4 w-4"
+        />
+        PDFに現場写真を載せる（{photoCount}枚・写真ぶんページが増えます）
+      </label>
+
       {flash && (
         <p className="mt-2 text-center text-[13px] font-bold text-[var(--color-brown2)]">
           {flash}
@@ -353,6 +368,7 @@ export function StorePanel({ store }: { store: StoreName }) {
             inspection={inspection}
             all={data.inspections}
             issuedOn={todayISO()}
+            includePhotos={withPhotos}
           />
         </PrintPortal>
       )}

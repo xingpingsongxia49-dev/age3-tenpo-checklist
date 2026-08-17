@@ -28,11 +28,16 @@ import type { Answer, ChecklistItem, Inspection } from "@/lib/types";
 
 const INK = { ok: "#2F6B46", mid: "#8A6D22", ng: "#A33A2E", na: "#8A7A6D" };
 
-/** 2枚に収まる上限。超えた分は件数だけ明記して落とす */
+/** 本編（表と集計）を2枚に収めるための上限。超えた分は件数だけ明記して落とす */
 const MAX_ISSUE_ROWS = 15;
-const MAX_PHOTOS = 3;
 const MAX_LEDGER_ROWS = 16;
 const MAX_HISTORY_ROWS = 8;
+
+/**
+ * 写真は本編の後ろに別ページで付ける。枚数に応じてページが増える。
+ * 印刷が終わらなくなるのを防ぐための上限で、1ページ9枚 × 4ページ分。
+ */
+const MAX_PHOTOS = 36;
 
 function verdictInk(v: Summary["verdict"]) {
   return v === "green" ? INK.ok : v === "yellow" ? INK.mid : v === "red" ? INK.ng : INK.na;
@@ -86,14 +91,39 @@ function Kpi({
   );
 }
 
-function PhotoCell({ photoId, caption }: { photoId: string; caption: string }) {
+function PhotoCell({
+  photoId,
+  no,
+  judgement,
+  caption,
+  note,
+}: {
+  photoId: string;
+  no: number;
+  judgement: string | null;
+  caption: string;
+  note?: string;
+}) {
   const url = usePhotoUrl(photoId);
+  const ink =
+    judgement === "×" ? INK.ng : judgement === "△" ? INK.mid : judgement === "○" ? INK.ok : INK.na;
   return (
     <figure className="pr-photo">
-      {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {url && <img src={url} alt={caption} />}
-      <figcaption>{caption}</figcaption>
+      <div className="pr-photo-frame">
+        {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {url && <img src={url} alt={caption} />}
+        <span className="pr-photo-no">写真{no}</span>
+        {judgement && (
+          <span className="pr-photo-judge" style={{ background: ink }}>
+            判定 {judgement}
+          </span>
+        )}
+      </div>
+      <figcaption>
+        <span className="pr-photo-cap">{caption}</span>
+        {note && <span className="pr-photo-note">{note}</span>}
+      </figcaption>
     </figure>
   );
 }
@@ -106,10 +136,12 @@ export function StoreReport({
   inspection,
   all,
   issuedOn,
+  includePhotos = true,
 }: {
   inspection: Inspection;
   all: Inspection[];
   issuedOn: string;
+  includePhotos?: boolean;
 }) {
   const s = summarize(inspection);
   const previous = findPrevious(all, inspection);
@@ -151,11 +183,25 @@ export function StoreReport({
     : [];
   const worsenedCount = allIssues.filter((r) => r.worsened).length;
 
-  const photos = allIssues
-    .flatMap(({ item, a }) => a.photos.map((pid, i) => ({ pid, item, index: i, total: a.photos.length })))
-    .slice(0, MAX_PHOTOS);
-  const photoOmitted =
-    allIssues.reduce((n, { a }) => n + a.photos.length, 0) - photos.length;
+  // 写真は判定に関わらず全項目から集める。×→△→その他、同じ判定なら項目番号順。
+  const judgeRank: Record<string, number> = { "×": 0, "△": 1, "○": 2, 対象外: 3 };
+  const allPhotos = items
+    .map((item) => ({ item, a: answerOf(inspection, item.id) }))
+    .filter(({ a }) => a.photos.length > 0)
+    .sort(
+      (x, y) =>
+        (judgeRank[x.a.judgement ?? "○"] ?? 9) - (judgeRank[y.a.judgement ?? "○"] ?? 9) ||
+        x.item.id - y.item.id,
+    )
+    .flatMap(({ item, a }) =>
+      a.photos.map((pid, i) => ({ pid, item, a, index: i, total: a.photos.length })),
+    );
+
+  const photos = includePhotos ? allPhotos.slice(0, MAX_PHOTOS) : [];
+  const photoOmitted = includePhotos ? allPhotos.length - photos.length : 0;
+
+  // 要改善の行から「写真3,4」と参照できるよう、写真IDに通し番号を振る
+  const photoNo = new Map(photos.map((p, i) => [p.pid, i + 1] as const));
 
   return (
     <div className="pr-doc pr-sheet">
@@ -419,7 +465,15 @@ export function StoreReport({
                     {a.note && <span className="pr-fact-text">事実：{a.note}</span>}
                     {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
                     {worsened && <span className="pr-tag is-ng">悪化</span>}
-                    {a.photos.length > 0 && <span className="pr-tag">写真{a.photos.length}枚</span>}
+                    {a.photos.length > 0 && (
+                      <span className="pr-tag">
+                        写真
+                        {a.photos
+                          .map((pid) => photoNo.get(pid))
+                          .filter(Boolean)
+                          .join("・") || `${a.photos.length}枚`}
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td className="w-own">
@@ -444,23 +498,29 @@ export function StoreReport({
         </p>
       )}
 
-      {/* 4. 現場写真 */}
+      {/* 4. 現場写真（本編の後ろに別ページで付ける） */}
       {photos.length > 0 && (
-        <>
-          <h2 className="pr-h2">{previous ? "4" : "3"}. 現場写真</h2>
+        <section className="pr-photo-section">
+          <h2 className="pr-h2">
+            {previous ? "4" : "3"}. 現場写真（{allPhotos.length}枚
+            {photoOmitted > 0 ? `　※${photos.length}枚を掲載` : ""}）
+          </h2>
           <div className="pr-photos">
-            {photos.map(({ pid, item, index, total }) => (
+            {photos.map(({ pid, item, a, index, total }) => (
               <PhotoCell
                 key={pid}
                 photoId={pid}
+                no={photoNo.get(pid) ?? 0}
+                judgement={a.judgement}
                 caption={`${item.id}. ${item.text}${total > 1 ? `（${index + 1}/${total}）` : ""}`}
+                note={a.note}
               />
             ))}
           </div>
           {photoOmitted > 0 && (
             <p className="pr-omit">ほか{photoOmitted}枚はアプリの各項目で確認してください。</p>
           )}
-        </>
+        </section>
       )}
 
       <p className="pr-foot-note">

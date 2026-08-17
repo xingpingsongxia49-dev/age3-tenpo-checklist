@@ -539,29 +539,90 @@ textarea {
 
 /* ---- 写真 ---- */
 
+/* 写真は本編の後ろに別ページで付ける。枚数に応じてページが増える */
+.pr-photo-section {
+  page-break-before: always;
+  break-before: page;
+}
+
 .pr-photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3mm;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4mm 3.5mm;
 }
 
 .pr-photo {
-  width: 58mm;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.pr-photo-frame {
+  position: relative;
 }
 
 .pr-photo img {
   width: 100%;
-  height: 34mm;
+  height: 44mm;
   object-fit: cover;
   border: 0.6pt solid #ccc;
   border-radius: 1.6mm;
+  display: block;
+}
+
+/* 要改善一覧の「写真3・4」から辿れるよう、写真側にも番号を出す */
+.pr-photo-no {
+  position: absolute;
+  left: 1.4mm;
+  top: 1.4mm;
+  background: rgba(62, 44, 35, 0.88);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 1.8mm;
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.pr-photo-judge {
+  position: absolute;
+  right: 1.4mm;
+  top: 1.4mm;
+  color: #fff;
+  border-radius: 999px;
+  text-align: center;
+  padding: 0 1.8mm;
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 1.7;
+  white-space: nowrap;
 }
 
 .pr-photo figcaption {
-  font-size: 7pt;
-  color: #555;
-  margin-top: 1mm;
-  line-height: 1.4;
+  margin-top: 1.2mm;
+}
+
+.pr-photo-cap {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 7.2pt;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.35;
+}
+
+.pr-photo-note {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 6.8pt;
+  color: #666;
+  line-height: 1.35;
+  margin-top: 0.5mm;
 }
 
 /* ---- 補足 ---- */
