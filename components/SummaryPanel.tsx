@@ -17,6 +17,7 @@ import { todayISO, useStore } from "@/lib/store";
 import { AllStoresReport } from "./PrintReport";
 import { usePrint } from "@/lib/usePrint";
 import { PrintPortal } from "./PrintPortal";
+import { PreviewBar } from "./PreviewBar";
 import type { StoreName } from "@/lib/types";
 
 const STATUS_INK: Record<Correction["status"], string> = {
@@ -37,7 +38,8 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
   const [showDone, setShowDone] = useState(false);
   const [msg, setMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const { printing, print } = usePrint();
+  const { printing, printFailed, print, clearFailed } = usePrint();
+  const [preview, setPreview] = useState(false);
   const today = todayISO();
 
   if (!ready) {
@@ -121,12 +123,37 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
           })}
         </ul>
 
-        <button type="button" className="btn btn-primary mt-4 w-full" onClick={print}>
-          全店PDF報告書を作る
+        <button
+          type="button"
+          className="btn btn-primary mt-4 w-full"
+          onClick={print}
+          disabled={printing}
+        >
+          {printing ? "準備中…" : "全店PDF報告書を作る"}
+        </button>
+        <button
+          type="button"
+          className="btn mt-2 w-full"
+          onClick={() => {
+            clearFailed();
+            setPreview(true);
+          }}
+        >
+          報告書を画面で見る（PDFが出ないとき）
         </button>
         <p className="mt-1 text-[11px] text-[var(--color-sub)]">
           3店比較・カテゴリ別比較・是正台帳・視察履歴をA4の帳票にまとめて出します。
         </p>
+        {printFailed && (
+          <div className="notice mt-2 px-3 py-2.5 text-[12px] leading-relaxed">
+            <p className="font-bold">印刷シートが出ませんでしたか？</p>
+            <p className="mt-1">
+              LINEやInstagramのアプリ内ブラウザ、ホーム画面に追加したアプリでは印刷が動きません。
+              右上の「…」から<span className="font-bold">Safariで開く</span>と使えます。
+              このままなら「報告書を画面で見る」でスクリーンショットを撮ってください。
+            </p>
+          </div>
+        )}
       </Card>
 
       {/* 是正管理台帳 */}
@@ -382,11 +409,12 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
         </p>
       </Card>
 
-      {printing && (
-        <PrintPortal>
-          <AllStoresReport all={data.inspections} issuedOn={today} />
-        </PrintPortal>
-      )}
+      {/* 報告書は常に置いておく（画面には出ない）。写真と組版を先に済ませておかないと、
+          iOSでは「押したその場で印刷を呼ぶ」ことができない */}
+      <PrintPortal preview={preview}>
+        <AllStoresReport all={data.inspections} issuedOn={today} />
+      </PrintPortal>
+      {preview && <PreviewBar onPrint={print} onClose={() => setPreview(false)} />}
     </div>
   );
 }

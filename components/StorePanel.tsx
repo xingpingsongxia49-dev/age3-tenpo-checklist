@@ -22,6 +22,7 @@ import { shareReportImage } from "@/lib/image";
 import { StoreReport } from "./PrintReport";
 import { usePrint } from "@/lib/usePrint";
 import { PrintPortal } from "./PrintPortal";
+import { PreviewBar } from "./PreviewBar";
 import { todayISO, useStore } from "@/lib/store";
 import { EMPTY_ANSWER, type StoreName } from "@/lib/types";
 
@@ -33,7 +34,8 @@ export function StorePanel({ store }: { store: StoreName }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [flash, setFlash] = useState("");
   const [withPhotos, setWithPhotos] = useState(true);
-  const { printing, print } = usePrint();
+  const { printing, printFailed, print, clearFailed } = usePrint();
+  const [preview, setPreview] = useState(false);
 
   const previous = useMemo(
     () => (inspection ? findPrevious(data.inspections, inspection) : undefined),
@@ -372,12 +374,8 @@ export function StorePanel({ store }: { store: StoreName }) {
         >
           画像で保存・共有
         </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={print}
-        >
-          PDF報告書を作る
+        <button type="button" className="btn" onClick={print} disabled={printing}>
+          {printing ? "写真を読み込み中…" : "PDF報告書を作る"}
         </button>
         <button
           type="button"
@@ -424,22 +422,50 @@ export function StorePanel({ store }: { store: StoreName }) {
         PDFに現場写真を載せる（{photoCount}枚・写真ぶんページが増えます）
       </label>
 
+      {/* iPhoneのLINE内ブラウザやホーム画面アプリでは印刷そのものに対応しておらず、
+          ボタンを押しても何も起きない。押した結果が無かったときと、
+          最初から確認したいときの両方に、画面プレビューを用意する */}
+      {printFailed && (
+        <div className="notice mt-2 px-3 py-2.5 text-[12px] leading-relaxed">
+          <p className="font-bold">印刷シートが出ませんでしたか？</p>
+          <p className="mt-1">
+            LINEやInstagramのアプリ内ブラウザ、ホーム画面に追加したアプリでは印刷が動きません。
+            右上の「…」から<span className="font-bold">Safariで開く</span>と使えます。
+            このまま進めるなら、下の「報告書を画面で見る」でスクリーンショットを撮るか、
+            「画像で保存・共有」を使ってください。
+          </p>
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="btn mt-2 w-full"
+        onClick={() => {
+          clearFailed();
+          setPreview(true);
+        }}
+      >
+        報告書を画面で見る（PDFが出ないとき）
+      </button>
+
       {flash && (
         <p className="mt-2 text-center text-[13px] font-bold text-[var(--color-brown2)]">
           {flash}
         </p>
       )}
 
-      {printing && (
-        <PrintPortal>
-          <StoreReport
-            inspection={inspection}
-            all={data.inspections}
-            issuedOn={todayISO()}
-            includePhotos={withPhotos}
-          />
-        </PrintPortal>
-      )}
+      {/* 報告書は常に置いておく（画面には出ない）。
+          写真の読み込みを先に済ませておかないと、iOSでは
+          「押したその場で印刷を呼ぶ」ことができない */}
+      <PrintPortal preview={preview}>
+        <StoreReport
+          inspection={inspection}
+          all={data.inspections}
+          issuedOn={todayISO()}
+          includePhotos={withPhotos}
+        />
+      </PrintPortal>
+      {preview && <PreviewBar onPrint={print} onClose={() => setPreview(false)} />}
     </Card>
   );
 }

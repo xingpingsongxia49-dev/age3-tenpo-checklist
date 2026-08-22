@@ -1,4 +1,4 @@
-import { CATEGORIES, CHECKLIST } from "./checklist";
+import { CATEGORIES, CHECKLIST, CORE_IDS } from "./checklist";
 import type {
   Answer,
   CategoryName,
@@ -19,8 +19,14 @@ export const JUDGEMENT_FACTOR: Record<Exclude<Judgement, "対象外">, number> =
 };
 
 /** その店舗で見るべき項目（共通 ＋ その店舗の追加項目） */
+/**
+ * その店で実際に回す30項目。
+ * マスタ（CHECKLIST 75項目）から CORE_IDS で選ぶ。項目の入れ替えは
+ * lib/checklist.ts の CORE_IDS を書き換えるだけでよい。
+ */
 export function itemsForStore(store: StoreName): ChecklistItem[] {
-  return CHECKLIST.filter((i) => i.scope === "共通" || i.scope === store);
+  const ids = new Set(CORE_IDS[store]);
+  return CHECKLIST.filter((i) => ids.has(i.id));
 }
 
 export function answerOf(inspection: Inspection, itemId: number): Answer {
