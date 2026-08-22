@@ -25,7 +25,7 @@ import { PrintPortal } from "./PrintPortal";
 import { todayISO, useStore } from "@/lib/store";
 import { EMPTY_ANSWER, type StoreName } from "@/lib/types";
 
-type Filter = "all" | "todo" | "issue" | "prevNg" | "streak";
+type Filter = "all" | "todo" | "issue" | "prevNg" | "streak" | "s" | "sa";
 
 export function StorePanel({ store }: { store: StoreName }) {
   const { data, ready, updateInspection, updateAnswer, resetInspection } = useStore();
@@ -71,8 +71,14 @@ export function StorePanel({ store }: { store: StoreName }) {
   const unconfirmed = unconfirmedPreviousBatsu(data.inspections, inspection);
   const unconfirmedIds = new Set(unconfirmed.map((i) => i.id));
 
+  // 時間が無い日は重要度で絞って回る。項目自体は消さず、表示だけを絞る
+  const sCount = items.filter((i) => i.weight === "S").length;
+  const saCount = items.filter((i) => i.weight !== "B").length;
+
   const visible = items.filter((item) => {
     const j = answerOf(inspection, item.id).judgement;
+    if (filter === "s") return item.weight === "S";
+    if (filter === "sa") return item.weight !== "B";
     if (filter === "todo") return j === null;
     if (filter === "issue") return j === "×" || j === "△";
     if (filter === "prevNg") return unconfirmedIds.has(item.id);
@@ -239,6 +245,36 @@ export function StorePanel({ store }: { store: StoreName }) {
           </button>
         ))}
       </div>
+
+      {/* 時間が無い日は重要度で絞って回る。項目は消さず、表示だけを絞る */}
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <span className="shrink-0 px-1 text-[11px] text-[var(--color-sub)]">重要度</span>
+        {(
+          [
+            ["s", `Sだけ ${sCount}`],
+            ["sa", `S＋A ${saCount}`],
+          ] as [Filter, string][]
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilter(filter === key ? "all" : key)}
+            className={`chip min-h-[38px] flex-1 whitespace-nowrap px-2 text-[12px] font-bold ${
+              filter === key ? "chip-on" : ""
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {(filter === "s" || filter === "sa") && (
+        <p className="mt-2 px-1 text-[11px] leading-relaxed text-[var(--color-sub)]">
+          表示を絞っているだけで、スコアは全{items.length}項目で計算しています。
+          見ていない項目は未入力のまま分母から外れるため、
+          {filter === "s" ? "Sだけ" : "S＋A"}で回った日は「見た範囲の点数」です。
+        </p>
+      )}
 
       {/* カテゴリ見出しごとの項目リスト */}
       <div className="mt-4">
