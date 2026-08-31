@@ -9,7 +9,7 @@ import { renderCardPng } from "@/lib/cardImage";
 import { renderCanSheetPng, renderSweetSheetPng } from "@/lib/sheetImage";
 import { emptyReport, emptySettings, todayISO } from "@/lib/calc";
 import { toLineText, toStockText } from "@/lib/format";
-import { loadReport, loadSettings, loadWeek } from "@/lib/storage";
+import { loadReport, loadSettings, loadWeek, saveReport } from "@/lib/storage";
 import type { Report, Settings } from "@/lib/types";
 
 type Notice = { tone: "ok" | "warn"; text: string } | null;
@@ -38,23 +38,41 @@ function PreviewBody() {
 
   const lineText = toLineText(report, settings);
 
-  /** LINEの共有シートを開く。使えない端末では文字をコピーして手で貼ってもらう */
-  async function shareText(text: string) {
+  /**
+   * LINEの共有シートを開く。使えない端末では文字をコピーして手で貼ってもらう。
+   * 日報そのものを送れたときは「送信済み」として記録し、
+   * 入力画面が次の日報のために空で開くようにする。
+   */
+  async function shareText(text: string, isReport = false) {
+    const done = async (msg: string) => {
+      if (isReport) await markSent();
+      setNotice({ tone: "ok", text: msg });
+    };
+
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ text });
+        await done("送信しました。入力画面は次の日報のために空になります。");
         return;
       } catch (e) {
-        // 利用者が共有シートを閉じただけなら、何も知らせない
+        // 利用者が共有シートを閉じただけなら、送信扱いにしない
         if (e instanceof DOMException && e.name === "AbortError") return;
       }
     }
     try {
       await navigator.clipboard.writeText(text);
-      setNotice({ tone: "ok", text: "コピーしました。LINEを開いて貼り付けてください。" });
+      await done("コピーしました。LINEを開いて貼り付けてください。");
     } catch {
       setNotice({ tone: "warn", text: "共有もコピーもできませんでした。下の文面を選んでコピーしてください。" });
     }
+  }
+
+  /** その日の日報に送信の印を付ける。中身は履歴と分析にそのまま残る */
+  async function markSent() {
+    if (!report) return;
+    const stamped = { ...report, sentAt: new Date().toISOString() };
+    await saveReport(stamped);
+    setReport(stamped);
   }
 
   /**
@@ -118,7 +136,7 @@ function PreviewBody() {
       ) : null}
 
       <div className="mt-4 space-y-2">
-        <button type="button" onClick={() => void shareText(lineText)} className="btn btn-line w-full">
+        <button type="button" onClick={() => void shareText(lineText, true)} className="btn btn-line w-full">
           💬 LINEに送る（テキスト）
         </button>
         <button

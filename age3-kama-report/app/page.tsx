@@ -35,9 +35,8 @@ const SAVE_LABEL: Record<string, string> = {
 function ReportForm() {
   const params = useSearchParams();
   // 履歴やプレビューから戻ってきたときは、その日の日報を開く
-  const { date, setDate, report, patch, settings, loading, saveState } = useReport(
-    params.get("date") ?? undefined,
-  );
+  const { date, setDate, report, patch, settings, loading, saveState, sent, restoreSent } =
+    useReport(params.get("date") ?? undefined);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -93,6 +92,32 @@ function ReportForm() {
           ) : null}
         </div>
       </header>
+
+      {sent ? (
+        <div className="card mb-4 border-l-[6px] border-l-ok bg-ok-bg p-4">
+          <p className="text-base font-bold text-ok">
+            ✅ この日の日報は送信済みです
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+            {new Date(sent.sentAt as string).toLocaleString("ja-JP", {
+              month: "numeric",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            に送信しました。送った内容は履歴と分析に残っています。
+            <br />
+            入力欄は次の日報のために空にしてあります。ここに入力すると、この日の日報として上書きされます。
+          </p>
+          <button
+            type="button"
+            onClick={restoreSent}
+            className="btn btn-ghost mt-3 w-full"
+          >
+            送信した内容を呼び戻して直す
+          </button>
+        </div>
+      ) : null}
 
       <Fold
         title="シフト・人員体制"

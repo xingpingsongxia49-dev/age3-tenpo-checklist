@@ -90,6 +90,7 @@ export function emptyReport(date: string): Report {
     reviewReplies: Object.fromEntries(REVIEW_STORES.map((s) => [s, null])),
     note: "",
     updatedAt: new Date().toISOString(),
+    sentAt: null,
   };
 }
 

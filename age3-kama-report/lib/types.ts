@@ -89,6 +89,12 @@ export type Report = {
   note: string;
   /** 保存時刻（ISO文字列） */
   updatedAt: string;
+  /**
+   * LINEに送った時刻（ISO文字列）。まだ送っていなければ null。
+   * これが入っている日報は「その日のぶんは提出済み」とみなし、
+   * 入力画面は空の状態で開く。履歴と分析にはそのまま残る。
+   */
+  sentAt: string | null;
 };
 
 /** 設定画面で編集するマスタ。目標数もここで上書きできる */
