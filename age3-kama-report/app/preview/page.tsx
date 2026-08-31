@@ -117,7 +117,7 @@ function PreviewBody() {
   return (
     <main className="px-3 pt-4">
       <div className="mb-3 flex items-center gap-2">
-        <Link href={`/?date=${date}`} className="tap text-sm font-bold text-brand">
+        <Link href={`/report?date=${date}`} className="tap text-sm font-bold text-brand">
           ← 入力に戻る
         </Link>
       </div>

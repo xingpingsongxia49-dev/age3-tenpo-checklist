@@ -75,7 +75,7 @@ export default function SettingsUnlockPage() {
       </form>
 
       <Link href="/" className="mt-4 block text-center text-sm font-bold text-brand">
-        ← 日報入力に戻る
+        ← トップに戻る
       </Link>
     </main>
   );
