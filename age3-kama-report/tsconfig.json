@@ -17,6 +17,5 @@
     "paths": { "@/*": ["./*"] }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "//": "age3-kama-report は同じリポジトリに置いてあるだけの別アプリ。自前の tsconfig を持っており、\n        ここで型検査すると @/* がこちらのルートを指してしまうため、対象から外す。",
-  "exclude": ["node_modules", "age3-kama-report"]
+  "exclude": ["node_modules"]
 }

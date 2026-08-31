@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+/*
+ * Age.3 嘉麻店 日報アプリの見た目。
+ *
+ * 「揚げたて・ライブ感・映え・高級感」を、温かいクリーム地＋濃い焦茶＋金の
+ * 3色でつくる。ステータスは信号色（緑・黄・赤／青・橙）で、色を見た瞬間に
+ * 分かるようにしてある。文字は指定どおりゴシック体のみ。
+ */
+
+@theme {
+  /* 地と文字 */
+  --color-cream: #fbf7f0;
+  --color-cream-deep: #f3ebde;
+  --color-ink: #2b1f18;
+  --color-ink-soft: #6b5a4e;
+  --color-line: #e6dccb;
+
+  /* ブランド色 */
+  --color-brand: #7a2e1e;       /* 揚げ色に寄せた深い赤茶 */
+  --color-brand-deep: #4d1c11;
+  --color-gold: #c8952f;        /* 高級感の金 */
+  --color-gold-soft: #f2e2bf;
+  --color-berry: #d4436b;       /* いちご */
+  --color-matcha: #5f7a3a;
+
+  /* 信号色 */
+  --color-ok: #2f8a4e;
+  --color-ok-bg: #e6f4ea;
+  --color-warn: #b8801b;
+  --color-warn-bg: #fdf3dc;
+  --color-low: #c0392b;
+  --color-low-bg: #fbe6e3;
+  --color-info: #2b6cb0;
+  --color-info-bg: #e5eefa;
+
+  --font-sans: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP",
+    "Yu Gothic UI", "Yu Gothic", Meiryo, "MS PGothic", system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    /* iOSで入力欄をタップしたときに画面が拡大しないよう、本文は16px以上に保つ */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    /* iPhoneのホームバーに重ならないよう下に余白を足す */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* 数字はどの端末でも桁が揃うように */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 部品 ---- */
+
+@layer components {
+  .card {
+    background: #fff;
+    border: 1px solid var(--color-line);
+    border-radius: 18px;
+    box-shadow: 0 1px 2px rgb(43 31 24 / 0.05), 0 8px 24px -18px rgb(43 31 24 / 0.4);
+  }
+
+  /* セクション見出し。金の細線で高級感を出す */
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.02em;
+  }
+
+  .section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--color-gold-soft), transparent);
+  }
+
+  /* 数値ステッパー・トグルなど、指で押す前提の大きさ */
+  .tap {
+    min-height: 48px;
+    min-width: 48px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .field {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-line);
+    border-radius: 12px;
+    background: #fff;
+    font-size: 16px;
+    color: var(--color-ink);
+  }
+
+  .field:focus {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 1px;
+  }
+
+  /* 数値欄の上下矢印は指では押しづらく、±ボタンと役目が重なるので消す */
+  .field[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .field[type="number"]::-webkit-outer-spin-button,
+  .field[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .badge-ok   { background: var(--color-ok-bg);   color: var(--color-ok); }
+  .badge-warn { background: var(--color-warn-bg); color: var(--color-warn); }
+  .badge-low  { background: var(--color-low-bg);  color: var(--color-low); }
+  .badge-info { background: var(--color-info-bg); color: var(--color-info); }
+
+  /* 主ボタン。押せる場所が一目で分かるよう濃い色で塗る */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 52px;
+    padding: 0 18px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 16px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-primary {
+    background: var(--color-brand);
+    color: #fff;
+    box-shadow: 0 8px 20px -12px var(--color-brand-deep);
+  }
+
+  .btn-primary:active { background: var(--color-brand-deep); }
+
+  .btn-line {
+    background: #06c755; /* LINEの緑。共有ボタンだと直感的に分かるように */
+    color: #fff;
+  }
+
+  .btn-ghost {
+    background: #fff;
+    color: var(--color-ink);
+    border: 1px solid var(--color-line);
+  }
+
+  /* 横スクロールのタブ列。スマホで指ではじけるように */
+  .scroll-x {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .scroll-x::-webkit-scrollbar { display: none; }
+
+  /* 日報カードの見出し帯 */
+  .card-header {
+    background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-deep) 100%);
+    color: #fff;
+  }
+}

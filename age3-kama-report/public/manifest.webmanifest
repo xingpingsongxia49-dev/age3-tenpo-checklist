@@ -1,0 +1,14 @@
+{
+  "name": "Age.3 嘉麻店 日報",
+  "short_name": "嘉麻日報",
+  "description": "在庫・製造・シフト・売上を、スマホだけで入力してLINEに送る日報アプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf7f0",
+  "theme_color": "#7a2e1e",
+  "lang": "ja",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
