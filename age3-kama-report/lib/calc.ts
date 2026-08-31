@@ -1,0 +1,286 @@
+import {
+  CAN_ITEMS,
+  PRODUCT_GROUPS,
+  PRODUCT_INDEX,
+  REVIEW_STORES,
+  SWEET_ITEMS,
+  DEFAULT_STAFF,
+} from "./masters";
+import type { Level, Report, Settings } from "./types";
+
+/** 端末のローカル日付を YYYY-MM-DD で返す（UTCに寄ると日付がずれるので自前で組む） */
+export function todayISO(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** YYYY-MM-DD から曜日1文字を返す */
+export function weekdayOf(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? "" : WEEKDAYS[d.getDay()];
+}
+
+/** 「8/30（日）」の表記 */
+export function prettyDate(iso: string): string {
+  const [, m, d] = iso.split("-");
+  if (!m || !d) return iso;
+  return `${Number(m)}/${Number(d)}（${weekdayOf(iso)}）`;
+}
+
+export function emptySettings(): Settings {
+  return { staff: [...DEFAULT_STAFF], canTargets: {}, sweetTargets: {} };
+}
+
+/** 何も入っていない日報。日付だけ決まっている状態 */
+export function emptyReport(date: string): Report {
+  return {
+    date,
+    shift: {
+      headcount: null,
+      production: [],
+      sales: [],
+      staffPresent: false,
+      partOnly: false,
+      partOnlyHours: "",
+      partOnlyNote: "",
+    },
+    cans: Object.fromEntries(CAN_ITEMS.map((i) => [i.id, { stock: null, made: null }])),
+    sweets: Object.fromEntries(
+      SWEET_ITEMS.map((i) => [i.id, { stock: null, madePieces: null, madeBlocks: null }]),
+    ),
+    sales: {
+      total: null,
+      cash: null,
+      credit: null,
+      paypay: null,
+      qr: null,
+      anchorTicket: null,
+      guests: null,
+      uberOrders: null,
+      uberSales: null,
+      reviewsToday: null,
+      reviewsTotal: null,
+    },
+    customers: { segment: "", peakHour: "", repeat: null, newcomer: null },
+    products: Object.fromEntries(
+      PRODUCT_GROUPS.flatMap((g) => g.items.map((i) => [i.id, 0])),
+    ),
+    idleTasks: [],
+    idleNote: "",
+    reviewReplies: Object.fromEntries(REVIEW_STORES.map((s) => [s, null])),
+    note: "",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * 保存済みの日報を今のマスタに合わせて埋め直す。
+ * 商品が増えた後で古い日報を開いても落ちないようにするための保険。
+ */
+export function normalizeReport(raw: Partial<Report> & { date: string }): Report {
+  const base = emptyReport(raw.date);
+  return {
+    ...base,
+    ...raw,
+    shift: { ...base.shift, ...(raw.shift ?? {}) },
+    cans: { ...base.cans, ...(raw.cans ?? {}) },
+    sweets: { ...base.sweets, ...(raw.sweets ?? {}) },
+    sales: { ...base.sales, ...(raw.sales ?? {}) },
+    customers: { ...base.customers, ...(raw.customers ?? {}) },
+    products: { ...base.products, ...(raw.products ?? {}) },
+    reviewReplies: { ...base.reviewReplies, ...(raw.reviewReplies ?? {}) },
+    idleTasks: raw.idleTasks ?? [],
+  };
+}
+
+/** 設定の上書きを見たうえでの、缶商品の絶対在庫 */
+export function canTarget(id: string, settings: Settings): number {
+  const override = settings.canTargets[id];
+  if (typeof override === "number" && override > 0) return override;
+  return CAN_ITEMS.find((i) => i.id === id)?.target ?? 0;
+}
+
+/** 設定の上書きを見たうえでの、スイーツ商品の定数 */
+export function sweetTarget(id: string, settings: Settings): number {
+  const override = settings.sweetTargets[id];
+  if (typeof override === "number" && override > 0) return override;
+  return SWEET_ITEMS.find((i) => i.id === id)?.target ?? 0;
+}
+
+/**
+ * 充足率の段階。
+ * 80%以上＝十分（緑）／50%以上＝やや不足（黄）／50%未満＝大幅不足（赤）。
+ * 目標が0の品目は判定しようがないので緑扱いにする。
+ */
+export function levelOf(rate: number | null): Level {
+  if (rate === null) return "warn";
+  if (rate >= 0.8) return "ok";
+  if (rate >= 0.5) return "warn";
+  return "low";
+}
+
+/** 現在庫 ÷ 目標。未入力なら null */
+export function fillRate(stock: number | null, target: number): number | null {
+  if (stock === null || target <= 0) return null;
+  return stock / target;
+}
+
+export type StockSummary = {
+  /** 入力済みの品目数 */
+  filled: number;
+  total: number;
+  /** 現在庫の合計 */
+  stock: number;
+  /**
+   * 目標の合計。ただし在庫を入力した品目のぶんだけ足す。
+   * まだ数え終えていない品目の目標まで含めると、途中経過が実際より
+   * ずっと不足しているように見えてしまうため。
+   */
+  target: number;
+  /** 全品目の目標の合計（参考） */
+  targetAll: number;
+  /** 作成数の合計 */
+  made: number;
+  /** 入力済みの品目だけで見た充足率 */
+  rate: number | null;
+  ok: number;
+  warn: number;
+  low: number;
+  /** 大幅不足の品目名（赤バッジ）。少ない順に並べる */
+  lowNames: string[];
+};
+
+function summarize(
+  rows: { name: string; stock: number | null; target: number; made: number }[],
+): StockSummary {
+  let stock = 0;
+  let target = 0;
+  let targetAll = 0;
+  let made = 0;
+  let filled = 0;
+  const counts = { ok: 0, warn: 0, low: 0 };
+  const lows: { name: string; rate: number }[] = [];
+
+  for (const r of rows) {
+    made += r.made;
+    targetAll += r.target;
+    if (r.stock === null) continue;
+    filled += 1;
+    stock += r.stock;
+    target += r.target;
+    const rate = fillRate(r.stock, r.target);
+    const lv = levelOf(rate);
+    counts[lv] += 1;
+    if (lv === "low") lows.push({ name: r.name, rate: rate ?? 0 });
+  }
+
+  lows.sort((a, b) => a.rate - b.rate);
+  return {
+    filled,
+    total: rows.length,
+    stock,
+    target,
+    targetAll,
+    made,
+    rate: target > 0 ? stock / target : null,
+    ...counts,
+    lowNames: lows.map((l) => l.name),
+  };
+}
+
+/** 冷凍在庫（缶）のまとめ */
+export function canSummary(report: Report, settings: Settings): StockSummary {
+  return summarize(
+    CAN_ITEMS.map((i) => ({
+      name: i.name,
+      stock: report.cans[i.id]?.stock ?? null,
+      target: canTarget(i.id, settings),
+      made: report.cans[i.id]?.made ?? 0,
+    })),
+  );
+}
+
+/** スイーツ在庫のまとめ */
+export function sweetSummary(report: Report, settings: Settings): StockSummary {
+  return summarize(
+    SWEET_ITEMS.map((i) => ({
+      name: i.name,
+      stock: report.sweets[i.id]?.stock ?? null,
+      target: sweetTarget(i.id, settings),
+      made: report.sweets[i.id]?.madePieces ?? 0,
+    })),
+  );
+}
+
+/** スイーツの作成角数の合計 */
+export function sweetBlocks(report: Report): number {
+  return SWEET_ITEMS.reduce((s, i) => s + (report.sweets[i.id]?.madeBlocks ?? 0), 0);
+}
+
+/** 客単価。総売上 ÷ 客数（組）。割れないときは null */
+export function unitPrice(report: Report): number | null {
+  const { total, guests } = report.sales;
+  if (!total || !guests) return null;
+  return Math.round(total / guests);
+}
+
+/** 決済手段の内訳合計。総売上と食い違っていたら入力ミスに気づける */
+export function paymentTotal(report: Report): number {
+  const s = report.sales;
+  return (s.cash ?? 0) + (s.credit ?? 0) + (s.paypay ?? 0) + (s.qr ?? 0) + (s.anchorTicket ?? 0);
+}
+
+/** 商品別販売数の合計 */
+export function productTotal(report: Report): number {
+  return Object.values(report.products).reduce((s, n) => s + (n || 0), 0);
+}
+
+/** 一番売れた商品。同数なら先に並んでいるほうを採る */
+export function topProduct(
+  report: Report,
+): { id: string; name: string; group: string; emoji: string; count: number } | null {
+  let best: { id: string; count: number } | null = null;
+  for (const g of PRODUCT_GROUPS) {
+    for (const it of g.items) {
+      const n = report.products[it.id] ?? 0;
+      if (n > 0 && (!best || n > best.count)) best = { id: it.id, count: n };
+    }
+  }
+  if (!best) return null;
+  const meta = PRODUCT_INDEX[best.id];
+  return { id: best.id, count: best.count, name: meta.name, group: meta.group, emoji: meta.emoji };
+}
+
+/** 口コミ返信の合計 */
+export function reviewReplyTotal(report: Report): number {
+  return Object.values(report.reviewReplies).reduce<number>((s, n) => s + (n ?? 0), 0);
+}
+
+/** 入力がどこまで進んだか。0〜1 */
+export function completion(report: Report): number {
+  const checks: boolean[] = [
+    report.shift.headcount !== null,
+    report.shift.production.length > 0 || report.shift.sales.length > 0,
+    Object.values(report.cans).some((c) => c.stock !== null),
+    Object.values(report.sweets).some((s) => s.stock !== null),
+    report.sales.total !== null,
+    report.sales.guests !== null,
+    report.customers.segment !== "",
+    productTotal(report) > 0,
+  ];
+  return checks.filter(Boolean).length / checks.length;
+}
+
+/** 円表記。null は空欄のまま出す */
+export function yen(n: number | null | undefined): string {
+  if (n === null || n === undefined) return "—";
+  return `¥${n.toLocaleString("ja-JP")}`;
+}
+
+/** 割合を「78%」の形に */
+export function pct(rate: number | null): string {
+  if (rate === null) return "—";
+  return `${Math.round(rate * 100)}%`;
+}

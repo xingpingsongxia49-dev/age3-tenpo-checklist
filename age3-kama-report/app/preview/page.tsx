@@ -1,0 +1,152 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+
+import { ReportCard } from "@/components/ReportCard";
+import { renderCardPng } from "@/lib/cardImage";
+import { emptyReport, emptySettings, todayISO } from "@/lib/calc";
+import { toLineText, toStockText } from "@/lib/format";
+import { loadReport, loadSettings } from "@/lib/storage";
+import type { Report, Settings } from "@/lib/types";
+
+type Notice = { tone: "ok" | "warn"; text: string } | null;
+
+function PreviewBody() {
+  const params = useSearchParams();
+  const date = params.get("date") || todayISO();
+
+  const [report, setReport] = useState<Report | null>(null);
+  const [settings, setSettings] = useState<Settings>(emptySettings);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const [r, s] = await Promise.all([loadReport(date), loadSettings()]);
+      setReport(r ?? emptyReport(date));
+      setSettings(s);
+    })();
+  }, [date]);
+
+  if (!report) {
+    return <p className="px-4 pt-10 text-center text-sm text-ink-soft">読み込み中…</p>;
+  }
+
+  const lineText = toLineText(report, settings);
+
+  /** LINEの共有シートを開く。使えない端末では文字をコピーして手で貼ってもらう */
+  async function shareText(text: string) {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch (e) {
+        // 利用者が共有シートを閉じただけなら、何も知らせない
+        if (e instanceof DOMException && e.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice({ tone: "ok", text: "コピーしました。LINEを開いて貼り付けてください。" });
+    } catch {
+      setNotice({ tone: "warn", text: "共有もコピーもできませんでした。下の文面を選んでコピーしてください。" });
+    }
+  }
+
+  /** 日報カードのPNG。共有シートに画像を渡せる端末では渡し、駄目なら保存に落とす */
+  async function shareImage() {
+    if (!report) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const blob = await renderCardPng(report, settings);
+      const file = new File([blob], `age3-kama-${report.date}.png`, { type: "image/png" });
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+          return;
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      // 端末が保存し終わるまで少し猶予をおいてから片付ける
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      setNotice({ tone: "ok", text: "画像を保存しました。LINEに添付して送れます。" });
+    } catch (e) {
+      setNotice({ tone: "warn", text: `画像を作れませんでした：${String(e)}` });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="px-3 pt-4">
+      <div className="mb-3 flex items-center gap-2">
+        <Link href={`/?date=${date}`} className="tap text-sm font-bold text-brand">
+          ← 入力に戻る
+        </Link>
+      </div>
+
+      <ReportCard report={report} settings={settings} />
+
+      {notice ? (
+        <p
+          className={`mt-3 rounded-xl px-3 py-2 text-sm font-bold ${
+            notice.tone === "ok" ? "bg-ok-bg text-ok" : "bg-warn-bg text-warn"
+          }`}
+        >
+          {notice.text}
+        </p>
+      ) : null}
+
+      <div className="mt-4 space-y-2">
+        <button type="button" onClick={() => void shareText(lineText)} className="btn btn-line w-full">
+          💬 LINEに送る（テキスト）
+        </button>
+        <button
+          type="button"
+          onClick={() => void shareImage()}
+          disabled={busy}
+          className="btn btn-primary w-full disabled:opacity-40"
+        >
+          {busy ? "画像を作成中…" : "🖼 日報カードを画像で保存／共有"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void shareText(toStockText(report, settings))}
+          className="btn btn-ghost w-full"
+        >
+          🧊 在庫の内訳だけ送る
+        </button>
+      </div>
+
+      <details className="card mt-4 p-4">
+        <summary className="tap cursor-pointer text-sm font-bold">送られる文面を確認する</summary>
+        <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-xl bg-cream p-3 text-xs leading-relaxed">
+          {lineText}
+        </pre>
+      </details>
+
+      <p className="mt-3 text-center text-xs text-ink-soft">
+        「LINEに送る」で共有シートが出ないときは、画像で保存してLINEに添付してください。
+      </p>
+    </main>
+  );
+}
+
+export default function PreviewPage() {
+  return (
+    <Suspense fallback={<p className="px-4 pt-10 text-center text-sm text-ink-soft">読み込み中…</p>}>
+      <PreviewBody />
+    </Suspense>
+  );
+}
