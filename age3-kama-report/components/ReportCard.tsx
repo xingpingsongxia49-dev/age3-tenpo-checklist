@@ -1,20 +1,16 @@
 "use client";
 
 import {
-  canSummary,
-  levelOf,
-  pct,
+  canMadeTotal,
   prettyDate,
   productTotal,
   reviewReplyTotal,
-  sweetBlocks,
-  sweetSummary,
   topProduct,
   unitPrice,
   yen,
 } from "@/lib/calc";
+import { CAN_ITEMS } from "@/lib/masters";
 import type { Report, Settings } from "@/lib/types";
-import { Bar, LevelBadge } from "@/components/ui";
 
 function Row({
   label,
@@ -37,43 +33,17 @@ function Heading({ children }: { children: React.ReactNode }) {
   return <h3 className="section-title mb-2 mt-5 first:mt-0">{children}</h3>;
 }
 
-function Gauge({
-  title,
-  rate,
-  detail,
-  counts,
-}: {
-  title: string;
-  rate: number | null;
-  detail: string;
-  counts: string;
-}) {
-  const level = levelOf(rate);
-  return (
-    <div className="mb-2 rounded-2xl bg-cream p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="flex-1 text-sm font-bold">{title}</span>
-        <LevelBadge level={level} text={pct(rate)} />
-      </div>
-      <Bar rate={rate} level={level} />
-      <div className="mt-1.5 flex items-baseline gap-2 text-xs text-ink-soft">
-        <span className="tnum flex-1">{detail}</span>
-        <span className="tnum">{counts}</span>
-      </div>
-    </div>
-  );
-}
-
 /**
  * 画面に出す日報カード。
  * lib/cardImage.ts が書き出すPNGと同じ並び・同じ色にしてある。
  */
 export function ReportCard({ report, settings }: { report: Report; settings: Settings }) {
-  const can = canSummary(report, settings);
-  const sweet = sweetSummary(report, settings);
-  const top = topProduct(report);
+  const top = topProduct(report, settings);
   const noStaff = !report.shift.staffPresent;
-  const lows = [...can.lowNames, ...sweet.lowNames];
+  const canMade = canMadeTotal(report);
+  const madeList = CAN_ITEMS.filter((i) => report.cans[i.id]?.made).map(
+    (i) => `${i.name} ${report.cans[i.id]?.made}`,
+  );
   const tasks = [...report.idleTasks, report.idleNote].filter(Boolean).join("・");
 
   return (
@@ -107,24 +77,19 @@ export function ReportCard({ report, settings }: { report: Report; settings: Set
           </ul>
         </div>
 
-        <Heading>🧊 在庫・製造</Heading>
-        <Gauge
-          title="冷凍在庫（缶商品）"
-          rate={can.rate}
-          detail={`在庫 ${can.stock} / 目標 ${can.target}（${can.filled}/${can.total}品目）　作成 ${can.made}個`}
-          counts={`🟢${can.ok}　🟡${can.warn}　🔴${can.low}`}
-        />
-        <Gauge
-          title="スイーツ在庫（サンド）"
-          rate={sweet.rate}
-          detail={`在庫 ${sweet.stock} / 目標 ${sweet.target}（${sweet.filled}/${sweet.total}品目）　作成 ${sweet.made}個 ${sweetBlocks(report)}角`}
-          counts={`🟢${sweet.ok}　🟡${sweet.warn}　🔴${sweet.low}`}
-        />
-        {lows.length ? (
-          <p className="rounded-2xl bg-low-bg p-3 text-xs font-bold text-low">
-            🔴 大幅不足：{lows.slice(0, 10).join("・")}
-          </p>
-        ) : null}
+        <Heading>🥞 缶商品の製造</Heading>
+        <div className="rounded-2xl bg-cream p-3">
+          <div className="flex items-baseline gap-2">
+            <span className="flex-1 text-sm font-bold">本日の製造数</span>
+            <span className="tnum text-2xl font-bold text-brand">{canMade}個</span>
+          </div>
+          {madeList.length ? (
+            <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+              {madeList.slice(0, 8).join("・")}
+              {madeList.length > 8 ? " ほか" : ""}
+            </p>
+          ) : null}
+        </div>
 
         <Heading>💰 売上</Heading>
         <Row label="総売上" value={yen(report.sales.total)} big />

@@ -1,10 +1,9 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState(false);
@@ -21,8 +20,8 @@ function LoginForm() {
     });
     setBusy(false);
     if (res.ok) {
-      router.replace(params.get("next") || "/");
-      router.refresh();
+      // 認証の境目はページごと読み直す。クライアント側に残った転送に引っかからない
+      window.location.href = params.get("next") || "/";
     } else {
       setError(true);
       setPasscode("");

@@ -7,8 +7,8 @@ import { Suspense, useEffect, useState } from "react";
 import { ReportCard } from "@/components/ReportCard";
 import { renderCardPng } from "@/lib/cardImage";
 import { emptyReport, emptySettings, todayISO } from "@/lib/calc";
-import { toLineText, toStockText } from "@/lib/format";
-import { loadReport, loadSettings } from "@/lib/storage";
+import { toLineText } from "@/lib/format";
+import { loadReport, loadSettings, saveReport } from "@/lib/storage";
 import type { Report, Settings } from "@/lib/types";
 
 type Notice = { tone: "ok" | "warn"; text: string } | null;
@@ -20,7 +20,8 @@ function PreviewBody() {
   const [report, setReport] = useState<Report | null>(null);
   const [settings, setSettings] = useState<Settings>(emptySettings);
   const [notice, setNotice] = useState<Notice>(null);
-  const [busy, setBusy] = useState(false);
+  /** 今どの画像を作っているか。null なら何も作っていない */
+  const [busy, setBusy] = useState<"card" | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -36,33 +37,58 @@ function PreviewBody() {
 
   const lineText = toLineText(report, settings);
 
-  /** LINEの共有シートを開く。使えない端末では文字をコピーして手で貼ってもらう */
-  async function shareText(text: string) {
+  /**
+   * LINEの共有シートを開く。使えない端末では文字をコピーして手で貼ってもらう。
+   * 日報そのものを送れたときは「送信済み」として記録し、
+   * 入力画面が次の日報のために空で開くようにする。
+   */
+  async function shareText(text: string, isReport = false) {
+    const done = async (msg: string) => {
+      if (isReport) await markSent();
+      setNotice({ tone: "ok", text: msg });
+    };
+
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ text });
+        await done("送信しました。入力画面は次の日報のために空になります。");
         return;
       } catch (e) {
-        // 利用者が共有シートを閉じただけなら、何も知らせない
+        // 利用者が共有シートを閉じただけなら、送信扱いにしない
         if (e instanceof DOMException && e.name === "AbortError") return;
       }
     }
     try {
       await navigator.clipboard.writeText(text);
-      setNotice({ tone: "ok", text: "コピーしました。LINEを開いて貼り付けてください。" });
+      await done("コピーしました。LINEを開いて貼り付けてください。");
     } catch {
       setNotice({ tone: "warn", text: "共有もコピーもできませんでした。下の文面を選んでコピーしてください。" });
     }
   }
 
-  /** 日報カードのPNG。共有シートに画像を渡せる端末では渡し、駄目なら保存に落とす */
-  async function shareImage() {
+  /** その日の日報に送信の印を付ける。中身は履歴と分析にそのまま残る */
+  async function markSent() {
     if (!report) return;
-    setBusy(true);
+    const stamped = { ...report, sentAt: new Date().toISOString() };
+    await saveReport(stamped);
+    setReport(stamped);
+  }
+
+  /**
+   * 画像を1枚作って渡す。
+   * 共有シートに画像を渡せる端末ではそのまま共有し、駄目なら端末に保存させる。
+   */
+  async function shareImage(
+    kind: "card",
+    make: () => Promise<Blob>,
+    suffix: string,
+  ) {
+    if (!report) return;
+    setBusy(kind);
     setNotice(null);
     try {
-      const blob = await renderCardPng(report, settings);
-      const file = new File([blob], `age3-kama-${report.date}.png`, { type: "image/png" });
+      const blob = await make();
+      const file = new File([blob], `age3-kama-${suffix}-${report.date}.png`, { type: "image/png" });
 
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         try {
@@ -84,14 +110,14 @@ function PreviewBody() {
     } catch (e) {
       setNotice({ tone: "warn", text: `画像を作れませんでした：${String(e)}` });
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   return (
     <main className="px-3 pt-4">
       <div className="mb-3 flex items-center gap-2">
-        <Link href={`/?date=${date}`} className="tap text-sm font-bold text-brand">
+        <Link href={`/report?date=${date}`} className="tap text-sm font-bold text-brand">
           ← 入力に戻る
         </Link>
       </div>
@@ -109,24 +135,21 @@ function PreviewBody() {
       ) : null}
 
       <div className="mt-4 space-y-2">
-        <button type="button" onClick={() => void shareText(lineText)} className="btn btn-line w-full">
+        <button type="button" onClick={() => void shareText(lineText, true)} className="btn btn-line w-full">
           💬 LINEに送る（テキスト）
         </button>
         <button
           type="button"
-          onClick={() => void shareImage()}
-          disabled={busy}
+          onClick={() => void shareImage("card", () => renderCardPng(report, settings), "card")}
+          disabled={busy !== null}
           className="btn btn-primary w-full disabled:opacity-40"
         >
-          {busy ? "画像を作成中…" : "🖼 日報カードを画像で保存／共有"}
+          {busy === "card" ? "画像を作成中…" : "🖼 日報カードを画像で保存／共有"}
         </button>
-        <button
-          type="button"
-          onClick={() => void shareText(toStockText(report, settings))}
-          className="btn btn-ghost w-full"
-        >
-          🧊 在庫の内訳だけ送る
-        </button>
+
+        <Link href={`/stock?date=${date}`} className="btn btn-ghost w-full">
+          🧊 在庫チェックはこちら
+        </Link>
       </div>
 
       <details className="card mt-4 p-4">

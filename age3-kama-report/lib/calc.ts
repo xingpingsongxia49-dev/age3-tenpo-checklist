@@ -3,7 +3,8 @@ import {
   PRODUCT_GROUPS,
   PRODUCT_INDEX,
   REVIEW_STORES,
-  SWEET_ITEMS,
+  SWEET_CELLS,
+  sweetKey,
   DEFAULT_STAFF,
 } from "./masters";
 import type { Level, Report, Settings } from "./types";
@@ -15,6 +16,20 @@ export function todayISO(d: Date = new Date()): string {
 }
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** その日を含む週（月曜はじまり）の月〜日 7日分を YYYY-MM-DD で返す */
+export function weekOf(iso: string): string[] {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return [];
+  // getDay() は日曜が0。月曜を週のはじめにするので、日曜だけ6日戻す
+  const back = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - back);
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = new Date(d);
+    x.setDate(d.getDate() + i);
+    return todayISO(x);
+  });
+}
 
 /** YYYY-MM-DD から曜日1文字を返す */
 export function weekdayOf(iso: string): string {
@@ -30,7 +45,7 @@ export function prettyDate(iso: string): string {
 }
 
 export function emptySettings(): Settings {
-  return { staff: [...DEFAULT_STAFF], canTargets: {}, sweetTargets: {} };
+  return { staff: [...DEFAULT_STAFF], canTargets: {}, sweetTargets: {}, productNames: {} };
 }
 
 /** 何も入っていない日報。日付だけ決まっている状態 */
@@ -48,7 +63,10 @@ export function emptyReport(date: string): Report {
     },
     cans: Object.fromEntries(CAN_ITEMS.map((i) => [i.id, { stock: null, made: null }])),
     sweets: Object.fromEntries(
-      SWEET_ITEMS.map((i) => [i.id, { stock: null, madePieces: null, madeBlocks: null }]),
+      SWEET_CELLS.map((c) => [
+        sweetKey(c.item.id, c.variant),
+        { stock: null, madePieces: null, madeBlocks: null },
+      ]),
     ),
     sales: {
       total: null,
@@ -72,7 +90,47 @@ export function emptyReport(date: string): Report {
     reviewReplies: Object.fromEntries(REVIEW_STORES.map((s) => [s, null])),
     note: "",
     updatedAt: new Date().toISOString(),
+    sentAt: null,
+    stockSentAt: null,
   };
+}
+
+/**
+ * 在庫チェックの入力だけを空にする。日報側（売上・販売数・缶の製造数など）は残す。
+ * 在庫チェックを送ったあと、日報の入力を巻き添えで消さないために使う。
+ */
+export function clearStockFields(r: Report): Report {
+  const blank = emptyReport(r.date);
+  return {
+    ...r,
+    // 缶は「現在庫数」だけ在庫チェックの持ち物。作成数は日報側なので残す
+    cans: Object.fromEntries(
+      Object.entries(r.cans).map(([id, c]) => [id, { stock: null, made: c.made }]),
+    ),
+    sweets: blank.sweets,
+    stockSentAt: null,
+  };
+}
+
+/**
+ * 日報の入力だけを空にする。在庫チェックの入力（缶の現在庫数・スイーツサンド在庫）は残す。
+ */
+export function clearReportFields(r: Report): Report {
+  const blank = emptyReport(r.date);
+  return {
+    ...blank,
+    cans: Object.fromEntries(
+      Object.entries(r.cans).map(([id, c]) => [id, { stock: c.stock, made: null }]),
+    ),
+    sweets: r.sweets,
+    stockSentAt: r.stockSentAt,
+    sentAt: null,
+  };
+}
+
+/** 缶商品の当日製造数の合計 */
+export function canMadeTotal(report: Report): number {
+  return CAN_ITEMS.reduce((s, i) => s + (report.cans[i.id]?.made ?? 0), 0);
 }
 
 /**
@@ -102,11 +160,12 @@ export function canTarget(id: string, settings: Settings): number {
   return CAN_ITEMS.find((i) => i.id === id)?.target ?? 0;
 }
 
-/** 設定の上書きを見たうえでの、スイーツ商品の定数 */
-export function sweetTarget(id: string, settings: Settings): number {
-  const override = settings.sweetTargets[id];
+/** 設定の上書きを見たうえでの、在庫表1マスの定数。key は sweetKey() で作ったもの */
+export function sweetTarget(key: string, settings: Settings): number {
+  const override = settings.sweetTargets[key];
   if (typeof override === "number" && override > 0) return override;
-  return SWEET_ITEMS.find((i) => i.id === id)?.target ?? 0;
+  const cell = SWEET_CELLS.find((c) => sweetKey(c.item.id, c.variant) === key);
+  return cell?.target ?? 0;
 }
 
 /**
@@ -202,21 +261,39 @@ export function canSummary(report: Report, settings: Settings): StockSummary {
   );
 }
 
-/** スイーツ在庫のまとめ */
+/**
+ * 在庫表のまとめ。
+ * 紙と同じく「商品 × 系統」の1マスを1品目として数える。
+ * 名前は系統が分かるように「THREEサンド（抹茶）」の形にする。
+ */
 export function sweetSummary(report: Report, settings: Settings): StockSummary {
   return summarize(
-    SWEET_ITEMS.map((i) => ({
-      name: i.name,
-      stock: report.sweets[i.id]?.stock ?? null,
-      target: sweetTarget(i.id, settings),
-      made: report.sweets[i.id]?.madePieces ?? 0,
-    })),
+    SWEET_CELLS.map((c) => {
+      const key = sweetKey(c.item.id, c.variant);
+      const label = c.variant === "plain" ? c.item.name : `${c.item.name}（${VARIANT_LABEL[c.variant]}）`;
+      return {
+        name: label,
+        stock: report.sweets[key]?.stock ?? null,
+        target: sweetTarget(key, settings),
+        made: report.sweets[key]?.madePieces ?? 0,
+      };
+    }),
   );
 }
 
-/** スイーツの作成角数の合計 */
+const VARIANT_LABEL: Record<string, string> = {
+  plain: "プレーン",
+  tonyu: "豆乳",
+  matcha: "抹茶",
+  choco: "チョコ",
+};
+
+/** 在庫表の作成角数の合計 */
 export function sweetBlocks(report: Report): number {
-  return SWEET_ITEMS.reduce((s, i) => s + (report.sweets[i.id]?.madeBlocks ?? 0), 0);
+  return SWEET_CELLS.reduce(
+    (s, c) => s + (report.sweets[sweetKey(c.item.id, c.variant)]?.madeBlocks ?? 0),
+    0,
+  );
 }
 
 /** 客単価。総売上 ÷ 客数（組）。割れないときは null */
@@ -237,9 +314,16 @@ export function productTotal(report: Report): number {
   return Object.values(report.products).reduce((s, n) => s + (n || 0), 0);
 }
 
+/** 設定の上書きを見たうえでの、商品別販売数の商品名 */
+export function productName(id: string, settings?: Settings): string {
+  const override = settings?.productNames?.[id]?.trim();
+  return override || PRODUCT_INDEX[id]?.name || id;
+}
+
 /** 一番売れた商品。同数なら先に並んでいるほうを採る */
 export function topProduct(
   report: Report,
+  settings?: Settings,
 ): { id: string; name: string; group: string; emoji: string; count: number } | null {
   let best: { id: string; count: number } | null = null;
   for (const g of PRODUCT_GROUPS) {
@@ -250,7 +334,13 @@ export function topProduct(
   }
   if (!best) return null;
   const meta = PRODUCT_INDEX[best.id];
-  return { id: best.id, count: best.count, name: meta.name, group: meta.group, emoji: meta.emoji };
+  return {
+    id: best.id,
+    count: best.count,
+    name: productName(best.id, settings),
+    group: meta.group,
+    emoji: meta.emoji,
+  };
 }
 
 /** 口コミ返信の合計 */
@@ -260,11 +350,11 @@ export function reviewReplyTotal(report: Report): number {
 
 /** 入力がどこまで進んだか。0〜1 */
 export function completion(report: Report): number {
+  // 在庫数は在庫チェック側の担当なので、日報の進み具合には数えない
   const checks: boolean[] = [
     report.shift.headcount !== null,
     report.shift.production.length > 0 || report.shift.sales.length > 0,
-    Object.values(report.cans).some((c) => c.stock !== null),
-    Object.values(report.sweets).some((s) => s.stock !== null),
+    canMadeTotal(report) > 0,
     report.sales.total !== null,
     report.sales.guests !== null,
     report.customers.segment !== "",

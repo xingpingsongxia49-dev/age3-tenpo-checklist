@@ -8,7 +8,11 @@ export type CanEntry = {
   made: number | null;
 };
 
-/** スイーツ在庫1品目の入力 */
+/**
+ * 在庫表の1マスの入力。
+ * 紙と同じく「商品 × 系統（プレーン／豆乳／抹茶／チョコ）」が1マス。
+ * report.sweets のキーは masters.ts の sweetKey() で作る。
+ */
 export type SweetEntry = {
   /** 現在庫数 */
   stock: number | null;
@@ -69,7 +73,7 @@ export type Report = {
   shift: Shift;
   /** 缶商品ID -> 入力 */
   cans: Record<string, CanEntry>;
-  /** スイーツ商品ID -> 入力 */
+  /** sweetKey(商品ID, 系統) -> 入力 */
   sweets: Record<string, SweetEntry>;
   sales: Sales;
   customers: Customers;
@@ -85,6 +89,18 @@ export type Report = {
   note: string;
   /** 保存時刻（ISO文字列） */
   updatedAt: string;
+  /**
+   * 日報をLINEに送った時刻（ISO文字列）。まだ送っていなければ null。
+   * これが入っている日は「日報は提出済み」とみなし、日報の入力画面は
+   * 空の状態で開く。履歴と分析にはそのまま残る。
+   */
+  sentAt: string | null;
+  /**
+   * 在庫チェックを送った時刻（ISO文字列）。
+   * 在庫チェックと日報は別の業務なので、提出済みかどうかも別に持つ。
+   * 片方を送っても、もう片方の入力は消えない。
+   */
+  stockSentAt: string | null;
 };
 
 /** 設定画面で編集するマスタ。目標数もここで上書きできる */
@@ -92,8 +108,14 @@ export type Settings = {
   staff: string[];
   /** 缶商品ID -> 絶対在庫（未設定なら masters.ts の初期値） */
   canTargets: Record<string, number>;
-  /** スイーツ商品ID -> 定数（未設定なら masters.ts の初期値） */
+  /** sweetKey(商品ID, 系統) -> 定数（未設定なら masters.ts の初期値） */
   sweetTargets: Record<string, number>;
+  /**
+   * 商品別販売数の商品ID -> 表示名。
+   * 季節ものは名前が変わるので、設定画面から書き換えられるようにしてある。
+   * 未設定なら masters.ts の名前を使う。
+   */
+  productNames: Record<string, string>;
 };
 
 /** 充足率の3段階。緑＝十分／黄＝やや不足／赤＝大幅不足 */

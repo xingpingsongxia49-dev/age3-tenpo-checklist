@@ -1,9 +1,9 @@
 /**
  * 嘉麻店の商品マスタ。
  *
- * 元になっているのは店舗に貼ってある紙2枚（「冷凍ストック」「在庫表」）で、
- * 目標数（絶対在庫・定数）はそこに印刷されている数字をそのまま写してある。
- * 目標数は設定画面から店舗ごとに書き換えられる（lib/settings.ts）ので、
+ * 元になっているのは店舗で使っているエクセル2枚（「冷凍在庫」「在庫表」）で、
+ * 商品名・並び順・目標数（絶対在庫数・定数）はそこに入っている値をそのまま写してある。
+ * 目標数は設定画面から書き換えられる（lib/settings 相当は Settings 型）ので、
  * ここにあるのは「紙と同じ初期値」という位置づけ。
  */
 
@@ -11,62 +11,92 @@
 export type CanItem = {
   id: string;
   name: string;
-  /** 絶対在庫＝これだけは常に持っておきたい数 */
+  /** 絶対在庫数。充足率の分母になる。0 なら充足率を出さない */
   target: number;
+  /**
+   * 紙に書いてある表記そのまま。「未開封2pc」のように個数でないものがあるため、
+   * 表示はこちらを使い、計算には target を使う。
+   */
+  targetLabel: string;
 };
 
 export type CanGroup = {
   id: string;
   name: string;
   emoji: string;
+  /** 紙の見出し行の色。書き出す画像でも同じ色を使う */
+  color: string;
   items: CanItem[];
 };
 
-/** 冷凍在庫（缶商品）。紙の「冷凍ストック」1枚目そのまま */
+/** 個数の目標。「45個」のような素直なもの */
+function pcs(n: number): { target: number; targetLabel: string } {
+  return { target: n, targetLabel: `${n}個` };
+}
+
+/** 冷凍在庫。エクセル「冷凍在庫」そのまま */
 export const CAN_GROUPS: CanGroup[] = [
   {
     id: "pancake",
     name: "パンケーキ缶",
     emoji: "🥞",
+    color: "#bdd7ee",
     items: [
-      { id: "pc_ichigo", name: "いちご", target: 200 },
-      { id: "pc_chocobanana", name: "チョコバナナ", target: 80 },
-      { id: "pc_pine", name: "パイン", target: 80 },
-      { id: "pc_kiwi", name: "キウイ", target: 80 },
-      { id: "pc_matcha_ichigo", name: "抹茶いちご", target: 30 },
-      { id: "pc_houji_warabi", name: "ほうじ茶わらび餅", target: 30 },
-      { id: "pc_shoga_an", name: "生姜あん", target: 30 },
-      { id: "pc_beniimo_annou", name: "紅芋＆安納芋", target: 30 },
-      { id: "pc_chococream_ichigo", name: "チョコクリームいちご", target: 45 },
-      { id: "pc_chococream_banana", name: "チョコクリームバナナ", target: 45 },
-      { id: "pc_custard_pudding", name: "生カスタードプリン", target: 45 },
-      { id: "pc_chocomint", name: "チョコミント", target: 30 },
-      { id: "pc_ichigocream_ichigo", name: "いちごクリームいちご", target: 45 },
-      { id: "pc_ichigo_daifuku", name: "いちご大福", target: 45 },
+      { id: "pc_ichigo", name: "いちご", ...pcs(400) },
+      { id: "pc_chocobanana", name: "チョコバナナ", ...pcs(135) },
+      { id: "pc_pine", name: "パイン", ...pcs(90) },
+      { id: "pc_kiwi", name: "キウイ", ...pcs(90) },
+      { id: "pc_matcha_ichigo", name: "抹茶いちご", ...pcs(30) },
+      { id: "pc_houji_warabi", name: "ほうじ茶わらび餅", ...pcs(30) },
+      { id: "pc_nama_kuri_an", name: "生栗あん", ...pcs(30) },
+      { id: "pc_beniimo_annou", name: "紅芋＆安納芋", ...pcs(30) },
+      { id: "pc_chococream_ichigo", name: "チョコクリームいちご", ...pcs(45) },
+      { id: "pc_chococream_banana", name: "チョコクリームバナナ", ...pcs(45) },
+      { id: "pc_custard_pudding", name: "生カスタードプリン", ...pcs(45) },
+      { id: "pc_chocomint", name: "チョコミント", ...pcs(30) },
+      { id: "pc_ichigocream_ichigo", name: "いちごクリームいちご", ...pcs(45) },
+      { id: "pc_ichigo_daifuku", name: "いちご大福", ...pcs(45) },
     ],
   },
   {
     id: "acai",
     name: "アサイー缶",
     emoji: "🫐",
+    color: "#e4c7f5",
     items: [
-      { id: "ac_ichigo", name: "いちご", target: 20 },
-      { id: "ac_chocobanana", name: "チョコバナナ", target: 20 },
-      { id: "ac_kiwi", name: "キウイ", target: 20 },
-      { id: "ac_pine", name: "パイン", target: 20 },
+      { id: "ac_ichigo", name: "いちご", ...pcs(100) },
+      { id: "ac_chocobanana", name: "チョコバナナ", ...pcs(45) },
+      { id: "ac_kiwi", name: "キウイ", ...pcs(45) },
+      { id: "ac_pine", name: "パイン", ...pcs(45) },
     ],
   },
   {
-    id: "cookiecream",
-    name: "クッキークリーム",
+    id: "oreo",
+    name: "オレオ系",
     emoji: "🍪",
+    color: "#ffff99",
     items: [
-      { id: "cc_whip", name: "ホイップ", target: 96 },
-      { id: "cc_choco", name: "チョコクリーム", target: 48 },
-      { id: "cc_matcha", name: "抹茶クリーム", target: 48 },
-      { id: "cc_ichigo", name: "いちごクリーム", target: 48 },
-      { id: "cc_mango", name: "マンゴークリーム", target: 48 },
-      { id: "cc_tonyu", name: "豆乳クリーム", target: 15 },
+      { id: "or_sand", name: "オレオサンド", ...pcs(96) },
+      { id: "or_choco", name: "チョコオレオ", ...pcs(48) },
+      { id: "or_matcha", name: "抹茶オレオ", ...pcs(48) },
+      { id: "or_ichigo", name: "いちごオレオ", ...pcs(48) },
+      { id: "or_mango", name: "マンゴーオレオ", ...pcs(48) },
+      { id: "or_tonyu", name: "豆乳オレオ", ...pcs(15) },
+      // 紙でも絶対在庫数が空欄。数えるだけで充足率は出さない
+      { id: "or_shikaku", name: "四角オレオ", target: 0, targetLabel: "" },
+    ],
+  },
+  {
+    id: "acai_material",
+    name: "アサイー材料",
+    emoji: "🥣",
+    color: "#c6e0b4",
+    items: [
+      { id: "am_acai", name: "アサイー", target: 2, targetLabel: "未開封2pc" },
+      { id: "am_container", name: "容器・蓋", target: 200, targetLabel: "各200個" },
+      { id: "am_mixberry", name: "ミックスベリー", target: 3, targetLabel: "未開封3pc" },
+      { id: "am_nuts", name: "ナッツ", target: 6, targetLabel: "6pc" },
+      { id: "am_honeycomb", name: "巣蜜", target: 10, targetLabel: "10個" },
     ],
   },
 ];
@@ -74,36 +104,67 @@ export const CAN_GROUPS: CanGroup[] = [
 /** 冷凍在庫の全品目をフラットに並べたもの */
 export const CAN_ITEMS: CanItem[] = CAN_GROUPS.flatMap((g) => g.items);
 
-/** スイーツ在庫（フルーツサンド・冷凍サンド）の1品目 */
+/**
+ * 在庫表の系統。
+ * 1つの商品に、生地違いで最大4系統ある（紙の列グループと同じ）。
+ */
+export type SweetVariant = "plain" | "tonyu" | "matcha" | "choco";
+
+export const SWEET_VARIANTS: { id: SweetVariant; name: string; color: string }[] = [
+  { id: "plain", name: "プレーン", color: "#ffffff" },
+  { id: "tonyu", name: "豆乳", color: "#ffe699" },
+  { id: "matcha", name: "抹茶", color: "#c6e0b4" },
+  { id: "choco", name: "チョコ", color: "#f8cbad" },
+];
+
+/** 在庫表の1品目 */
 export type SweetItem = {
   id: string;
   name: string;
-  /** 定数＝紙の「定数」列 */
-  target: number;
+  /**
+   * 系統ごとの定数。紙でグレーに潰してある系統はキーを持たない。
+   * 「その商品にその生地は無い」という意味なので、入力欄も出さない。
+   */
+  targets: Partial<Record<SweetVariant, number>>;
 };
 
-/** スイーツ在庫。紙の「在庫表」そのまま */
+/** 在庫表。エクセル「在庫表」そのまま */
 export const SWEET_ITEMS: SweetItem[] = [
-  { id: "sw_three", name: "THREEサンド", target: 10 },
-  { id: "sw_namachoco", name: "生チョコサンド", target: 10 },
-  { id: "sw_chocochip", name: "チョコチップ", target: 10 },
-  { id: "sw_w_kuri_an", name: "W栗あん", target: 10 },
-  { id: "sw_anmochi", name: "あん餅", target: 10 },
-  { id: "sw_fondant", name: "フォンダンショコラ", target: 10 },
-  { id: "sw_berry_honey", name: "ベリーハニーナッツ", target: 10 },
-  { id: "sw_blueberry", name: "ブルーベリーチーズ", target: 10 },
-  { id: "sw_anbutter", name: "あんバター", target: 10 },
-  { id: "sw_yakiimo", name: "焼き芋（安納芋）", target: 10 },
-  { id: "sw_chocomint", name: "チョコミント", target: 15 },
-  { id: "sw_mintcream", name: "ミントクリーム", target: 15 },
-  { id: "sw_oreomint", name: "オレオミント", target: 15 },
-  { id: "sw_namachocomint", name: "生チョコミント", target: 15 },
-  { id: "sw_pasley", name: "パスリー", target: 10 },
-  { id: "sw_tiramisu", name: "ティラミス", target: 10 },
-  { id: "sw_coffee_three", name: "コーヒースリー", target: 10 },
-  { id: "sw_montblanc", name: "モンブラン（和栗）", target: 10 },
-  { id: "sw_pudding_sand", name: "とろ〜りプリンサンド", target: 48 },
+  { id: "sw_three", name: "THREEサンド", targets: { plain: 10, tonyu: 10, matcha: 10, choco: 10 } },
+  { id: "sw_namachoco", name: "生チョコサンド", targets: { plain: 10, tonyu: 10, choco: 10 } },
+  { id: "sw_chocochip", name: "チョコチップ", targets: { plain: 10, tonyu: 10, matcha: 10 } },
+  { id: "sw_w_kuri_an", name: "W栗あん", targets: { matcha: 10 } },
+  { id: "sw_anmochi", name: "あん餅", targets: { matcha: 10 } },
+  { id: "sw_fondant", name: "フォンダンショコラ", targets: { plain: 10, choco: 10 } },
+  { id: "sw_berry_honey", name: "ベリーハニーナッツ", targets: { plain: 10 } },
+  { id: "sw_blueberry", name: "ブルーベリーチーズ", targets: { plain: 10 } },
+  { id: "sw_anbutter", name: "あんバター", targets: { plain: 10 } },
+  { id: "sw_yakiimo", name: "焼き芋（安納芋）", targets: { plain: 10 } },
+  { id: "sw_chocomint", name: "チョコミント", targets: { plain: 15 } },
+  { id: "sw_mintcream", name: "ミントクリーム", targets: { plain: 15 } },
+  { id: "sw_oreomint", name: "オレオミント", targets: { plain: 15 } },
+  { id: "sw_namachocomint", name: "生チョコミント", targets: { plain: 15 } },
+  { id: "sw_basley", name: "バスリー", targets: { plain: 10 } },
+  { id: "sw_tiramisu", name: "ティラミス", targets: { plain: 10 } },
+  { id: "sw_coffee_three", name: "コーヒースリー", targets: { plain: 10 } },
+  { id: "sw_montblanc", name: "モンブラン（和栗）", targets: { plain: 10 } },
+  { id: "sw_pudding_sand", name: "とろ〜りプリンサンド", targets: { plain: 48 } },
 ];
+
+/** 在庫表の入力1マスを指すキー。商品と系統の組で1つ */
+export function sweetKey(itemId: string, variant: SweetVariant): string {
+  return `${itemId}__${variant}`;
+}
+
+/** 在庫表に実際に存在する（商品, 系統）の組をすべて並べる */
+export const SWEET_CELLS: { item: SweetItem; variant: SweetVariant; target: number }[] =
+  SWEET_ITEMS.flatMap((item) =>
+    SWEET_VARIANTS.filter((v) => item.targets[v.id] !== undefined).map((v) => ({
+      item,
+      variant: v.id,
+      target: item.targets[v.id] as number,
+    })),
+  );
 
 /** 商品別販売数の1品目 */
 export type ProductItem = { id: string; name: string };

@@ -1,7 +1,9 @@
 import {
+  canMadeTotal,
   canSummary,
   prettyDate,
   pct,
+  productName,
   productTotal,
   reviewReplyTotal,
   sweetBlocks,
@@ -10,7 +12,14 @@ import {
   unitPrice,
   yen,
 } from "./calc";
-import { CAN_GROUPS, PRODUCT_GROUPS, REVIEW_STORES, SWEET_ITEMS } from "./masters";
+import {
+  CAN_GROUPS,
+  PRODUCT_GROUPS,
+  REVIEW_STORES,
+  SWEET_ITEMS,
+  SWEET_VARIANTS,
+  sweetKey,
+} from "./masters";
 import type { Report, Settings } from "./types";
 
 /** 数値を「9点」の形に。0や未入力は空欄にして、今までのLINE日報と同じ見た目にする */
@@ -32,9 +41,7 @@ function money(n: number | null | undefined): string {
  * 受け取る側は今日から読み方を変えなくていい。
  */
 export function toLineText(report: Report, settings: Settings): string {
-  const can = canSummary(report, settings);
-  const sweet = sweetSummary(report, settings);
-  const top = topProduct(report);
+  const top = topProduct(report, settings);
   const L: string[] = [];
 
   L.push(`📅 ${prettyDate(report.date)}　Age.3 嘉麻店 日報`);
@@ -60,18 +67,15 @@ export function toLineText(report: Report, settings: Settings): string {
   L.push("⸻");
   L.push("");
 
-  // 在庫
-  L.push("【在庫・製造】");
-  L.push(
-    `🧊 冷凍在庫（缶）：充足率 ${pct(can.rate)}（${can.stock}/${can.target}・${can.filled}/${can.total}品目）　作成 ${can.made}個`,
-  );
-  L.push(`　　🟢${can.ok}　🟡${can.warn}　🔴${can.low}`);
-  if (can.lowNames.length) L.push(`　　要補充：${can.lowNames.slice(0, 6).join("・")}`);
-  L.push(
-    `🥪 スイーツ在庫：充足率 ${pct(sweet.rate)}（${sweet.stock}/${sweet.target}・${sweet.filled}/${sweet.total}品目）　作成 ${sweet.made}個 / ${sweetBlocks(report)}角`,
-  );
-  L.push(`　　🟢${sweet.ok}　🟡${sweet.warn}　🔴${sweet.low}`);
-  if (sweet.lowNames.length) L.push(`　　要補充：${sweet.lowNames.slice(0, 6).join("・")}`);
+  // 缶商品の当日製造数。在庫数の報告は在庫チェック側の担当なのでここには出さない
+  L.push("【缶商品の当日製造数】");
+  for (const g of CAN_GROUPS) {
+    const made = g.items.filter((it) => report.cans[it.id]?.made);
+    if (!made.length) continue;
+    L.push(`${g.emoji}${g.name}`);
+    for (const it of made) L.push(`▶︎ ${it.name}：${report.cans[it.id]?.made}個`);
+  }
+  L.push(`▶ 製造合計：${canMadeTotal(report)}個`);
   L.push("");
   L.push("⸻");
   L.push("");
@@ -118,7 +122,9 @@ export function toLineText(report: Report, settings: Settings): string {
   L.push("");
   L.push("【販売個数（詳細）】");
   for (const g of PRODUCT_GROUPS) {
-    const lines = g.items.map((it) => `▶︎ ${it.name}：${pt(report.products[it.id])}`);
+    const lines = g.items.map(
+      (it) => `▶︎ ${productName(it.id, settings)}：${pt(report.products[it.id])}`,
+    );
     L.push(`${g.emoji}${g.name}`);
     L.push(...lines);
     L.push("");
@@ -152,30 +158,50 @@ export function toLineText(report: Report, settings: Settings): string {
 }
 
 /**
- * 在庫の内訳まで入った長いテキスト。
- * 「今日どれが赤だったか」を品目単位で追いたいときのために別で用意している。
+ * 在庫チェックの報告文。この1本でそのままLINEに送れる体裁にしてある。
+ * 上に2項目のまとめ、下に品目ごとの内訳を並べる。
  */
 export function toStockText(report: Report, settings: Settings): string {
+  const can = canSummary(report, settings);
+  const sweet = sweetSummary(report, settings);
   const L: string[] = [];
-  L.push(`📅 ${prettyDate(report.date)}　在庫・製造の内訳`);
+
+  L.push(`📅 ${prettyDate(report.date)}　Age.3 嘉麻店 在庫チェック`);
   L.push("");
-  L.push("🧊【冷凍在庫（缶商品）】");
+  L.push(
+    `🥪 スイーツサンド在庫：充足率 ${pct(sweet.rate)}（${sweet.stock}/${sweet.target}・${sweet.filled}/${sweet.total}品目）`,
+  );
+  L.push(`　　🟢${sweet.ok}　🟡${sweet.warn}　🔴${sweet.low}　作成 ${sweet.made}個 / ${sweetBlocks(report)}角`);
+  if (sweet.lowNames.length) L.push(`　　要補充：${sweet.lowNames.slice(0, 8).join("・")}`);
+  L.push("");
+  L.push(
+    `🧊 冷凍在庫（缶）：充足率 ${pct(can.rate)}（${can.stock}/${can.target}・${can.filled}/${can.total}品目）`,
+  );
+  L.push(`　　🟢${can.ok}　🟡${can.warn}　🔴${can.low}`);
+  if (can.lowNames.length) L.push(`　　要補充：${can.lowNames.slice(0, 8).join("・")}`);
+  L.push("");
+  L.push("⸻");
+  L.push("");
+  L.push("🧊【冷凍在庫（缶）の内訳】");
   for (const g of CAN_GROUPS) {
     L.push(`${g.emoji}${g.name}`);
     for (const it of g.items) {
       const e = report.cans[it.id];
-      L.push(
-        `　${it.name}：在庫 ${e?.stock ?? "—"} / ${it.target}　作成 ${e?.made ?? 0}`,
-      );
+      L.push(`　${it.name}：在庫 ${e?.stock ?? "—"} / ${it.targetLabel || "—"}`);
     }
   }
   L.push("");
-  L.push("🥪【スイーツ在庫】");
+  L.push("🥪【スイーツサンド在庫の内訳】");
   for (const it of SWEET_ITEMS) {
-    const e = report.sweets[it.id];
-    L.push(
-      `　${it.name}：在庫 ${e?.stock ?? "—"} / ${it.target}　作成 ${e?.madePieces ?? 0}個 ${e?.madeBlocks ?? 0}角`,
-    );
+    L.push(`${it.name}`);
+    for (const v of SWEET_VARIANTS) {
+      const target = it.targets[v.id];
+      if (target === undefined) continue;
+      const e = report.sweets[sweetKey(it.id, v.id)];
+      L.push(
+        `　${v.name}：在庫 ${e?.stock ?? "—"} / ${target}　作成 ${e?.madePieces ?? 0}個 ${e?.madeBlocks ?? 0}角`,
+      );
+    }
   }
   return L.join("\n");
 }

@@ -77,7 +77,7 @@ export default function HistoryPage() {
         <p className="card p-6 text-center text-sm text-ink-soft">
           まだ日報がありません。
           <br />
-          <Link href="/" className="font-bold text-brand">
+          <Link href="/report" className="font-bold text-brand">
             日報入力
           </Link>
           から今日のぶんを入れてください。

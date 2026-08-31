@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 「冷凍在庫の絶対在庫」「スイーツ在庫の定数」を、紙の一覧表と同じ見た目で
+ * 「冷凍在庫の絶対在庫」「スイーツサンド在庫の定数」を、紙の一覧表と同じ見た目で
  * そのままLINEに貼れる1枚のPNGにする。
  *
  * 日報カード（lib/cardImage.ts）と同じ理由で、HTML→画像変換ではなく canvas に直接描く。
@@ -61,7 +61,11 @@ function prettyToday(): string {
 export type TableGroup = {
   emoji?: string;
   name: string;
-  items: { name: string; value: number }[];
+  /**
+   * value は並べ替えや幅取りに使う数値。
+   * label があればそちらを表示する（「未開封2pc」のように個数でない目標があるため）。
+   */
+  items: { name: string; value: number; label?: string }[];
 };
 
 /** 表の中身を積みながら描く小さな道具 */
@@ -81,7 +85,8 @@ class TablePainter {
     this.y += 56 + 8;
   }
 
-  row(name: string, valueLabel: string, value: number) {
+  row(name: string, valueLabel: string, value: number, label?: string) {
+    const shown = label ?? String(value);
     const { ctx } = this;
     const h = 56;
     ctx.textBaseline = "middle";
@@ -90,15 +95,18 @@ class TablePainter {
     ctx.textAlign = "left";
     ctx.fillText(name, PAD + 20, this.y + h / 2);
 
+    // 幅は実際に数字を描く書体で測る。小さい書体で測ると見出しが数字に重なる
+    ctx.font = font(30, 700);
+    const vw = ctx.measureText(shown).width;
+
     ctx.font = font(20);
     ctx.fillStyle = C.inkSoft;
     ctx.textAlign = "right";
-    const vw = ctx.measureText(String(value)).width;
-    ctx.fillText(valueLabel, W - PAD - 20 - vw - 12, this.y + h / 2);
+    ctx.fillText(valueLabel, W - PAD - 20 - vw - 16, this.y + h / 2);
 
     ctx.font = font(30, 700);
     ctx.fillStyle = C.brand;
-    ctx.fillText(String(value), W - PAD - 20, this.y + h / 2);
+    ctx.fillText(shown, W - PAD - 20, this.y + h / 2);
     ctx.textAlign = "left";
 
     ctx.strokeStyle = C.line;
@@ -142,13 +150,13 @@ function paint(
   for (const g of groups) {
     p.groupHeading(g.emoji, g.name);
     for (const it of g.items) {
-      p.row(it.name, valueLabel, it.value);
+      p.row(it.name, valueLabel, it.value, it.label);
     }
     p.y += 16;
   }
 }
 
-/** 冷凍在庫・スイーツ在庫の目標数一覧をPNGにする。返すのは Blob */
+/** 冷凍在庫・スイーツサンド在庫の目標数一覧をPNGにする。返すのは Blob */
 export async function renderTargetTablePng(
   title: string,
   valueLabel: string,
