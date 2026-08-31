@@ -7,6 +7,7 @@ import { Section } from "@/components/ui";
 import { canTarget, emptySettings, sweetTarget } from "@/lib/calc";
 import { CAN_GROUPS, SWEET_ITEMS } from "@/lib/masters";
 import { loadSettings, remoteAvailable, saveSettings } from "@/lib/storage";
+import { renderTargetTablePng, shareOrDownloadPng, type TableGroup } from "@/lib/tableImage";
 import type { Settings } from "@/lib/types";
 
 /** 目標数を1つ書き換える入力欄 */
@@ -35,11 +36,36 @@ function TargetRow({
   );
 }
 
+/** 表を画像にして共有／保存するボタン。押している間だけ「作成中…」に変わる */
+function ShareTableButton({
+  label,
+  onShare,
+}: {
+  label: string;
+  onShare: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        void onShare().finally(() => setBusy(false));
+      }}
+      className="btn btn-primary mb-3 w-full disabled:opacity-40"
+    >
+      {busy ? "画像を作成中…" : label}
+    </button>
+  );
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [db, setDb] = useState<boolean | null>(null);
   const [newStaff, setNewStaff] = useState("");
   const [saved, setSaved] = useState(false);
+  const [imageNotice, setImageNotice] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -61,6 +87,43 @@ export default function SettingsPage() {
     });
   }
 
+  /** 冷凍在庫（缶）の絶対在庫表を画像で共有／保存する */
+  async function shareCanTable() {
+    if (!settings) return;
+    setImageNotice(null);
+    try {
+      const groups: TableGroup[] = CAN_GROUPS.map((g) => ({
+        emoji: g.emoji,
+        name: g.name,
+        items: g.items.map((it) => ({ name: it.name, value: canTarget(it.id, settings) })),
+      }));
+      const blob = await renderTargetTablePng("冷凍在庫 絶対在庫表", "絶対在庫", groups);
+      const r = await shareOrDownloadPng(blob, `age3-kama-can-target-${Date.now()}.png`);
+      if (r.message) setImageNotice(r.message);
+    } catch (e) {
+      setImageNotice(`画像を作れませんでした：${String(e)}`);
+    }
+  }
+
+  /** スイーツ在庫の定数表を画像で共有／保存する */
+  async function shareSweetTable() {
+    if (!settings) return;
+    setImageNotice(null);
+    try {
+      const groups: TableGroup[] = [
+        {
+          name: "スイーツ在庫（フルーツサンド・冷凍サンド）",
+          items: SWEET_ITEMS.map((it) => ({ name: it.name, value: sweetTarget(it.id, settings) })),
+        },
+      ];
+      const blob = await renderTargetTablePng("スイーツ在庫 定数表", "定数", groups);
+      const r = await shareOrDownloadPng(blob, `age3-kama-sweet-target-${Date.now()}.png`);
+      if (r.message) setImageNotice(r.message);
+    } catch (e) {
+      setImageNotice(`画像を作れませんでした：${String(e)}`);
+    }
+  }
+
   return (
     <main className="px-3 pt-4">
       <h1 className="mb-1 text-xl font-bold">⚙️ 設定</h1>
@@ -69,6 +132,11 @@ export default function SettingsPage() {
       </p>
       {saved ? (
         <p className="mb-3 rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">保存しました</p>
+      ) : null}
+      {imageNotice ? (
+        <p className="mb-3 rounded-xl bg-info-bg px-3 py-2 text-sm font-bold text-info">
+          {imageNotice}
+        </p>
       ) : null}
 
       <Section title="スタッフ一覧" emoji="👥">
@@ -124,6 +192,7 @@ export default function SettingsPage() {
       </Section>
 
       <Fold title="冷凍在庫の絶対在庫" emoji="🧊">
+        <ShareTableButton label="🖼 冷凍在庫の表を画像で共有" onShare={shareCanTable} />
         {CAN_GROUPS.map((g) => (
           <div key={g.id} className="mb-4">
             <h3 className="mb-1 rounded-lg bg-cream-deep px-3 py-1.5 text-sm font-bold">
@@ -144,6 +213,7 @@ export default function SettingsPage() {
       </Fold>
 
       <Fold title="スイーツ在庫の定数" emoji="🥪">
+        <ShareTableButton label="🖼 スイーツ在庫の表を画像で共有" onShare={shareSweetTable} />
         {SWEET_ITEMS.map((it) => (
           <TargetRow
             key={it.id}
