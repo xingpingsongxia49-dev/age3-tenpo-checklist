@@ -112,6 +112,19 @@ export async function listReports(): Promise<Report[]> {
   return local.sort((a, b) => b.date.localeCompare(a.date));
 }
 
+/**
+ * その日を含む週（月〜日）の日報をまとめて取る。
+ * 冷凍在庫の画像が紙と同じ1週間分なので、7日分をここで揃える。
+ */
+export async function loadWeek(date: string): Promise<Record<string, Report>> {
+  const { weekOf } = await import("./calc");
+  const days = new Set(weekOf(date));
+  const all = await listReports();
+  const out: Record<string, Report> = {};
+  for (const r of all) if (days.has(r.date)) out[r.date] = r;
+  return out;
+}
+
 export async function deleteReport(date: string): Promise<void> {
   const all = localReports();
   delete all[date];

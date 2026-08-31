@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Fold } from "@/components/Fold";
 import { Section } from "@/components/ui";
 import { canTarget, emptySettings, sweetTarget } from "@/lib/calc";
-import { CAN_GROUPS, SWEET_ITEMS } from "@/lib/masters";
+import { CAN_GROUPS, SWEET_ITEMS, SWEET_VARIANTS, sweetKey } from "@/lib/masters";
 import { loadSettings, remoteAvailable, saveSettings } from "@/lib/storage";
 import type { Settings } from "@/lib/types";
 
@@ -126,7 +126,10 @@ export default function SettingsPage() {
       <Fold title="冷凍在庫の絶対在庫" emoji="🧊">
         {CAN_GROUPS.map((g) => (
           <div key={g.id} className="mb-4">
-            <h3 className="mb-1 rounded-lg bg-cream-deep px-3 py-1.5 text-sm font-bold">
+            <h3
+              className="mb-1 rounded-lg px-3 py-1.5 text-sm font-bold"
+              style={{ background: g.color }}
+            >
               {g.emoji} {g.name}
             </h3>
             {g.items.map((it) => (
@@ -143,16 +146,26 @@ export default function SettingsPage() {
         ))}
       </Fold>
 
-      <Fold title="スイーツ在庫の定数" emoji="🥪">
+      <Fold title="在庫表の定数" emoji="🥪">
         {SWEET_ITEMS.map((it) => (
-          <TargetRow
-            key={it.id}
-            name={it.name}
-            value={sweetTarget(it.id, settings)}
-            onChange={(v) =>
-              update({ ...settings, sweetTargets: { ...settings.sweetTargets, [it.id]: v } })
-            }
-          />
+          <div key={it.id} className="mb-3">
+            <h3 className="mb-1 rounded-lg bg-cream-deep px-3 py-1.5 text-sm font-bold">
+              {it.name}
+            </h3>
+            {SWEET_VARIANTS.filter((v) => it.targets[v.id] !== undefined).map((v) => {
+              const key = sweetKey(it.id, v.id);
+              return (
+                <TargetRow
+                  key={v.id}
+                  name={v.name}
+                  value={sweetTarget(key, settings)}
+                  onChange={(n) =>
+                    update({ ...settings, sweetTargets: { ...settings.sweetTargets, [key]: n } })
+                  }
+                />
+              );
+            })}
+          </div>
         ))}
       </Fold>
 

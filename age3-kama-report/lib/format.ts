@@ -10,7 +10,14 @@ import {
   unitPrice,
   yen,
 } from "./calc";
-import { CAN_GROUPS, PRODUCT_GROUPS, REVIEW_STORES, SWEET_ITEMS } from "./masters";
+import {
+  CAN_GROUPS,
+  PRODUCT_GROUPS,
+  REVIEW_STORES,
+  SWEET_ITEMS,
+  SWEET_VARIANTS,
+  sweetKey,
+} from "./masters";
 import type { Report, Settings } from "./types";
 
 /** 数値を「9点」の形に。0や未入力は空欄にして、今までのLINE日報と同じ見た目にする */
@@ -165,17 +172,22 @@ export function toStockText(report: Report, settings: Settings): string {
     for (const it of g.items) {
       const e = report.cans[it.id];
       L.push(
-        `　${it.name}：在庫 ${e?.stock ?? "—"} / ${it.target}　作成 ${e?.made ?? 0}`,
+        `　${it.name}：在庫 ${e?.stock ?? "—"} / ${it.targetLabel || "—"}　作成 ${e?.made ?? 0}`,
       );
     }
   }
   L.push("");
-  L.push("🥪【スイーツ在庫】");
+  L.push("🥪【在庫表】");
   for (const it of SWEET_ITEMS) {
-    const e = report.sweets[it.id];
-    L.push(
-      `　${it.name}：在庫 ${e?.stock ?? "—"} / ${it.target}　作成 ${e?.madePieces ?? 0}個 ${e?.madeBlocks ?? 0}角`,
-    );
+    L.push(`${it.name}`);
+    for (const v of SWEET_VARIANTS) {
+      const target = it.targets[v.id];
+      if (target === undefined) continue;
+      const e = report.sweets[sweetKey(it.id, v.id)];
+      L.push(
+        `　${v.name}：在庫 ${e?.stock ?? "—"} / ${target}　作成 ${e?.madePieces ?? 0}個 ${e?.madeBlocks ?? 0}角`,
+      );
+    }
   }
   return L.join("\n");
 }

@@ -8,7 +8,11 @@ export type CanEntry = {
   made: number | null;
 };
 
-/** スイーツ在庫1品目の入力 */
+/**
+ * 在庫表の1マスの入力。
+ * 紙と同じく「商品 × 系統（プレーン／豆乳／抹茶／チョコ）」が1マス。
+ * report.sweets のキーは masters.ts の sweetKey() で作る。
+ */
 export type SweetEntry = {
   /** 現在庫数 */
   stock: number | null;
@@ -69,7 +73,7 @@ export type Report = {
   shift: Shift;
   /** 缶商品ID -> 入力 */
   cans: Record<string, CanEntry>;
-  /** スイーツ商品ID -> 入力 */
+  /** sweetKey(商品ID, 系統) -> 入力 */
   sweets: Record<string, SweetEntry>;
   sales: Sales;
   customers: Customers;
@@ -92,7 +96,7 @@ export type Settings = {
   staff: string[];
   /** 缶商品ID -> 絶対在庫（未設定なら masters.ts の初期値） */
   canTargets: Record<string, number>;
-  /** スイーツ商品ID -> 定数（未設定なら masters.ts の初期値） */
+  /** sweetKey(商品ID, 系統) -> 定数（未設定なら masters.ts の初期値） */
   sweetTargets: Record<string, number>;
 };
 

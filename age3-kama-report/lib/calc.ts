@@ -3,7 +3,8 @@ import {
   PRODUCT_GROUPS,
   PRODUCT_INDEX,
   REVIEW_STORES,
-  SWEET_ITEMS,
+  SWEET_CELLS,
+  sweetKey,
   DEFAULT_STAFF,
 } from "./masters";
 import type { Level, Report, Settings } from "./types";
@@ -15,6 +16,20 @@ export function todayISO(d: Date = new Date()): string {
 }
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** その日を含む週（月曜はじまり）の月〜日 7日分を YYYY-MM-DD で返す */
+export function weekOf(iso: string): string[] {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return [];
+  // getDay() は日曜が0。月曜を週のはじめにするので、日曜だけ6日戻す
+  const back = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - back);
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = new Date(d);
+    x.setDate(d.getDate() + i);
+    return todayISO(x);
+  });
+}
 
 /** YYYY-MM-DD から曜日1文字を返す */
 export function weekdayOf(iso: string): string {
@@ -48,7 +63,10 @@ export function emptyReport(date: string): Report {
     },
     cans: Object.fromEntries(CAN_ITEMS.map((i) => [i.id, { stock: null, made: null }])),
     sweets: Object.fromEntries(
-      SWEET_ITEMS.map((i) => [i.id, { stock: null, madePieces: null, madeBlocks: null }]),
+      SWEET_CELLS.map((c) => [
+        sweetKey(c.item.id, c.variant),
+        { stock: null, madePieces: null, madeBlocks: null },
+      ]),
     ),
     sales: {
       total: null,
@@ -102,11 +120,12 @@ export function canTarget(id: string, settings: Settings): number {
   return CAN_ITEMS.find((i) => i.id === id)?.target ?? 0;
 }
 
-/** 設定の上書きを見たうえでの、スイーツ商品の定数 */
-export function sweetTarget(id: string, settings: Settings): number {
-  const override = settings.sweetTargets[id];
+/** 設定の上書きを見たうえでの、在庫表1マスの定数。key は sweetKey() で作ったもの */
+export function sweetTarget(key: string, settings: Settings): number {
+  const override = settings.sweetTargets[key];
   if (typeof override === "number" && override > 0) return override;
-  return SWEET_ITEMS.find((i) => i.id === id)?.target ?? 0;
+  const cell = SWEET_CELLS.find((c) => sweetKey(c.item.id, c.variant) === key);
+  return cell?.target ?? 0;
 }
 
 /**
@@ -202,21 +221,39 @@ export function canSummary(report: Report, settings: Settings): StockSummary {
   );
 }
 
-/** スイーツ在庫のまとめ */
+/**
+ * 在庫表のまとめ。
+ * 紙と同じく「商品 × 系統」の1マスを1品目として数える。
+ * 名前は系統が分かるように「THREEサンド（抹茶）」の形にする。
+ */
 export function sweetSummary(report: Report, settings: Settings): StockSummary {
   return summarize(
-    SWEET_ITEMS.map((i) => ({
-      name: i.name,
-      stock: report.sweets[i.id]?.stock ?? null,
-      target: sweetTarget(i.id, settings),
-      made: report.sweets[i.id]?.madePieces ?? 0,
-    })),
+    SWEET_CELLS.map((c) => {
+      const key = sweetKey(c.item.id, c.variant);
+      const label = c.variant === "plain" ? c.item.name : `${c.item.name}（${VARIANT_LABEL[c.variant]}）`;
+      return {
+        name: label,
+        stock: report.sweets[key]?.stock ?? null,
+        target: sweetTarget(key, settings),
+        made: report.sweets[key]?.madePieces ?? 0,
+      };
+    }),
   );
 }
 
-/** スイーツの作成角数の合計 */
+const VARIANT_LABEL: Record<string, string> = {
+  plain: "プレーン",
+  tonyu: "豆乳",
+  matcha: "抹茶",
+  choco: "チョコ",
+};
+
+/** 在庫表の作成角数の合計 */
 export function sweetBlocks(report: Report): number {
-  return SWEET_ITEMS.reduce((s, i) => s + (report.sweets[i.id]?.madeBlocks ?? 0), 0);
+  return SWEET_CELLS.reduce(
+    (s, c) => s + (report.sweets[sweetKey(c.item.id, c.variant)]?.madeBlocks ?? 0),
+    0,
+  );
 }
 
 /** 客単価。総売上 ÷ 客数（組）。割れないときは null */
