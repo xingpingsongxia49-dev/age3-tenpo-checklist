@@ -52,7 +52,10 @@ function FillHead({
   );
 }
 
-/** 冷凍在庫（缶商品） */
+/**
+ * 冷凍在庫（缶）の在庫チェック。数えるのはここだけ。
+ * その日の製造数は日報側（CanMadeSection）で入れる。
+ */
 export function CanStockSection({
   report,
   settings,
@@ -62,7 +65,7 @@ export function CanStockSection({
   settings: Settings;
   patch: (fn: (r: Report) => Report) => void;
 }) {
-  const set = (id: string, key: "stock" | "made", v: number | null) =>
+  const set = (id: string, key: "stock", v: number | null) =>
     patch((r) => ({
       ...r,
       cans: { ...r.cans, [id]: { ...r.cans[id], [key]: v } },
@@ -83,25 +86,13 @@ export function CanStockSection({
                   target={canTarget(it.id, settings)}
                   stock={e.stock}
                 />
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-ink-soft">現在庫数</p>
-                    <Stepper
-                      value={e.stock}
-                      onChange={(v) => set(it.id, "stock", v)}
-                      label={`${it.name}の現在庫数`}
-                      compact
-                    />
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-ink-soft">作成数</p>
-                    <Stepper
-                      value={e.made}
-                      onChange={(v) => set(it.id, "made", v)}
-                      label={`${it.name}の作成数`}
-                      compact
-                    />
-                  </div>
+                <div className="flex items-center gap-3">
+                  <span className="w-20 shrink-0 text-xs font-medium text-ink-soft">現在庫数</span>
+                  <Stepper
+                    value={e.stock}
+                    onChange={(v) => set(it.id, "stock", v)}
+                    label={`${it.name}の現在庫数`}
+                  />
                 </div>
               </div>
             );
@@ -187,6 +178,63 @@ export function SweetStockSection({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+
+/**
+ * 缶商品の当日製造数。日報で報告する項目。
+ *
+ * 在庫チェック（何個あるか）とは別の話で、日報では「今日どれだけ作ったか」だけを見る。
+ * 数える作業と作った数の報告を分けたいので、画面も分けてある。
+ */
+export function CanMadeSection({
+  report,
+  patch,
+}: {
+  report: Report;
+  patch: (fn: (r: Report) => Report) => void;
+}) {
+  const set = (id: string, v: number | null) =>
+    patch((r) => ({
+      ...r,
+      cans: { ...r.cans, [id]: { ...r.cans[id], made: v } },
+    }));
+
+  const total = CAN_GROUPS.flatMap((g) => g.items).reduce(
+    (s, it) => s + (report.cans[it.id]?.made ?? 0),
+    0,
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between rounded-2xl bg-gold-soft px-3 py-3">
+        <span className="text-sm font-bold">本日の製造数 合計</span>
+        <span className="tnum text-lg font-bold">{total}個</span>
+      </div>
+
+      {CAN_GROUPS.map((g) => (
+        <div key={g.id}>
+          <GroupHead emoji={g.emoji} name={g.name} color={g.color} />
+          {g.items.map((it) => {
+            const made = report.cans[it.id]?.made ?? null;
+            return (
+              <div
+                key={it.id}
+                className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
+              >
+                <span className="flex-1 text-sm font-medium leading-tight">{it.name}</span>
+                <Stepper
+                  value={made}
+                  onChange={(v) => set(it.id, v)}
+                  label={`${it.name}の製造数`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }

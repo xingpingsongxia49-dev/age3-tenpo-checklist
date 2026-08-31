@@ -113,7 +113,7 @@ export default function SettingsPage() {
     }
   }
 
-  /** スイーツ在庫の定数表を画像で共有／保存する */
+  /** スイーツサンド在庫の定数表を画像で共有／保存する */
   async function shareSweetTable() {
     if (!settings) return;
     setImageNotice(null);

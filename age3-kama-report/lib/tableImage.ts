@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 「冷凍在庫の絶対在庫」「スイーツ在庫の定数」を、紙の一覧表と同じ見た目で
+ * 「冷凍在庫の絶対在庫」「スイーツサンド在庫の定数」を、紙の一覧表と同じ見た目で
  * そのままLINEに貼れる1枚のPNGにする。
  *
  * 日報カード（lib/cardImage.ts）と同じ理由で、HTML→画像変換ではなく canvas に直接描く。
@@ -156,7 +156,7 @@ function paint(
   }
 }
 
-/** 冷凍在庫・スイーツ在庫の目標数一覧をPNGにする。返すのは Blob */
+/** 冷凍在庫・スイーツサンド在庫の目標数一覧をPNGにする。返すのは Blob */
 export async function renderTargetTablePng(
   title: string,
   valueLabel: string,

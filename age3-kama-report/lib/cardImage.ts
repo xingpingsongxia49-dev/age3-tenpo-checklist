@@ -1,18 +1,17 @@
 "use client";
 
 import {
-  canSummary,
+  canMadeTotal,
   levelOf,
   pct,
   prettyDate,
   productTotal,
   reviewReplyTotal,
-  sweetBlocks,
-  sweetSummary,
   topProduct,
   unitPrice,
   yen,
 } from "./calc";
+import { CAN_ITEMS } from "./masters";
 import type { Level, Report, Settings } from "./types";
 
 /**
@@ -214,8 +213,6 @@ class Painter {
 
 /** 実際に描く手順。高さを測るためと本番用の2回まわす */
 function paint(p: Painter, report: Report, settings: Settings): void {
-  const can = canSummary(report, settings);
-  const sweet = sweetSummary(report, settings);
   const top = topProduct(report, settings);
   const { ctx } = p;
 
@@ -260,24 +257,17 @@ function paint(p: Painter, report: Report, settings: Settings): void {
     noStaff ? C.warnBg : C.infoBg,
   );
 
-  // 在庫
-  p.heading("🧊 在庫・製造");
-  p.gauge(
-    "冷凍在庫（缶商品）",
-    can.rate,
-    `在庫 ${can.stock} / 目標 ${can.target}（${can.filled}/${can.total}品目）　作成 ${can.made}個`,
-    `🟢${can.ok}　🟡${can.warn}　🔴${can.low}`,
+  // 缶商品の製造。在庫数は在庫チェック側の担当なので日報カードには出さない
+  p.heading("🥞 缶商品の製造");
+  const madeList = CAN_ITEMS.filter((i) => report.cans[i.id]?.made).map(
+    (i) => `${i.name} ${report.cans[i.id]?.made}`,
   );
-  p.gauge(
-    "スイーツ在庫（サンド）",
-    sweet.rate,
-    `在庫 ${sweet.stock} / 目標 ${sweet.target}（${sweet.filled}/${sweet.total}品目）　作成 ${sweet.made}個 ${sweetBlocks(report)}角`,
-    `🟢${sweet.ok}　🟡${sweet.warn}　🔴${sweet.low}`,
+  p.banner(
+    `本日の製造数 ${canMadeTotal(report)}個`,
+    madeList.slice(0, 12).join("・") + (madeList.length > 12 ? " ほか" : ""),
+    C.brand,
+    C.creamDeep,
   );
-  const lows = [...can.lowNames, ...sweet.lowNames];
-  if (lows.length) {
-    p.banner("🔴 大幅不足", lows.slice(0, 10).join("・"), C.low, C.lowBg);
-  }
 
   // 売上
   p.heading("💰 売上");

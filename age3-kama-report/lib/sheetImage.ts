@@ -306,7 +306,7 @@ export async function renderSweetSheetPng(report: Report, settings: Settings): P
 
   return paint(
     { cols, rows },
-    "在庫表",
+    "スイーツサンド在庫",
     `${prettyDate(report.date)}　Age.3 嘉麻店`,
     "空欄は未入力です。グレーの欄はその生地の設定がない組み合わせです。",
   );
@@ -337,7 +337,7 @@ export async function renderCanSheetPng(
   rows.push({
     height: 40,
     cells: [
-      { text: "冷凍在庫", bold: true, bg: "#f3f3f3", align: "left" },
+      { text: "冷凍在庫（缶）", bold: true, bg: "#f3f3f3", align: "left" },
       { text: "絶対在庫数", bold: true, size: 14, bg: "#f3f3f3" },
       ...days.map((d) => ({
         text: `${weekdayOf(d)}`,
@@ -409,5 +409,5 @@ export async function renderCanSheetPng(
     "大きい数字＝現在庫数、赤い数字＝その日の作成数。色のついた列が今日です。" +
     (changed.length ? `　※目標を変更中：${changed.map((c) => c.name).join("・")}` : "");
 
-  return paint({ cols, rows }, "冷凍在庫", `${prettyDate(report.date)} の週　Age.3 嘉麻店`, note);
+  return paint({ cols, rows }, "冷凍在庫（缶）", `${prettyDate(report.date)} の週　Age.3 嘉麻店`, note);
 }

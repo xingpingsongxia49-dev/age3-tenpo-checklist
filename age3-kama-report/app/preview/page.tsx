@@ -6,10 +6,9 @@ import { Suspense, useEffect, useState } from "react";
 
 import { ReportCard } from "@/components/ReportCard";
 import { renderCardPng } from "@/lib/cardImage";
-import { renderCanSheetPng, renderSweetSheetPng } from "@/lib/sheetImage";
 import { emptyReport, emptySettings, todayISO } from "@/lib/calc";
-import { toLineText, toStockText } from "@/lib/format";
-import { loadReport, loadSettings, loadWeek, saveReport } from "@/lib/storage";
+import { toLineText } from "@/lib/format";
+import { loadReport, loadSettings, saveReport } from "@/lib/storage";
 import type { Report, Settings } from "@/lib/types";
 
 type Notice = { tone: "ok" | "warn"; text: string } | null;
@@ -22,7 +21,7 @@ function PreviewBody() {
   const [settings, setSettings] = useState<Settings>(emptySettings);
   const [notice, setNotice] = useState<Notice>(null);
   /** 今どの画像を作っているか。null なら何も作っていない */
-  const [busy, setBusy] = useState<"card" | "sweet" | "can" | null>(null);
+  const [busy, setBusy] = useState<"card" | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -80,7 +79,7 @@ function PreviewBody() {
    * 共有シートに画像を渡せる端末ではそのまま共有し、駄目なら端末に保存させる。
    */
   async function shareImage(
-    kind: "card" | "sweet" | "can",
+    kind: "card",
     make: () => Promise<Blob>,
     suffix: string,
   ) {
@@ -148,45 +147,9 @@ function PreviewBody() {
           {busy === "card" ? "画像を作成中…" : "🖼 日報カードを画像で保存／共有"}
         </button>
 
-        <div className="rounded-2xl bg-cream-deep p-3">
-          <p className="mb-2 text-xs font-bold text-ink-soft">
-            紙と同じ形の表を画像で出す
-          </p>
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() =>
-                void shareImage("sweet", () => renderSweetSheetPng(report, settings), "zaikohyo")
-              }
-              disabled={busy !== null}
-              className="btn btn-ghost w-full disabled:opacity-40"
-            >
-              {busy === "sweet" ? "作成中…" : "📋 在庫表（プレーン／豆乳／抹茶／チョコ）"}
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                void shareImage(
-                  "can",
-                  async () => renderCanSheetPng(report, settings, await loadWeek(report.date)),
-                  "reitou",
-                )
-              }
-              disabled={busy !== null}
-              className="btn btn-ghost w-full disabled:opacity-40"
-            >
-              {busy === "can" ? "作成中…" : "🧊 冷凍在庫（月〜日の1週間分）"}
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => void shareText(toStockText(report, settings))}
-          className="btn btn-ghost w-full"
-        >
-          🧊 在庫の内訳をテキストで送る
-        </button>
+        <Link href={`/stock?date=${date}`} className="btn btn-ghost w-full">
+          🧊 在庫チェックはこちら
+        </Link>
       </div>
 
       <details className="card mt-4 p-4">

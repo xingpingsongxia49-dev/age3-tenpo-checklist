@@ -91,7 +91,46 @@ export function emptyReport(date: string): Report {
     note: "",
     updatedAt: new Date().toISOString(),
     sentAt: null,
+    stockSentAt: null,
   };
+}
+
+/**
+ * 在庫チェックの入力だけを空にする。日報側（売上・販売数・缶の製造数など）は残す。
+ * 在庫チェックを送ったあと、日報の入力を巻き添えで消さないために使う。
+ */
+export function clearStockFields(r: Report): Report {
+  const blank = emptyReport(r.date);
+  return {
+    ...r,
+    // 缶は「現在庫数」だけ在庫チェックの持ち物。作成数は日報側なので残す
+    cans: Object.fromEntries(
+      Object.entries(r.cans).map(([id, c]) => [id, { stock: null, made: c.made }]),
+    ),
+    sweets: blank.sweets,
+    stockSentAt: null,
+  };
+}
+
+/**
+ * 日報の入力だけを空にする。在庫チェックの入力（缶の現在庫数・スイーツサンド在庫）は残す。
+ */
+export function clearReportFields(r: Report): Report {
+  const blank = emptyReport(r.date);
+  return {
+    ...blank,
+    cans: Object.fromEntries(
+      Object.entries(r.cans).map(([id, c]) => [id, { stock: c.stock, made: null }]),
+    ),
+    sweets: r.sweets,
+    stockSentAt: r.stockSentAt,
+    sentAt: null,
+  };
+}
+
+/** 缶商品の当日製造数の合計 */
+export function canMadeTotal(report: Report): number {
+  return CAN_ITEMS.reduce((s, i) => s + (report.cans[i.id]?.made ?? 0), 0);
 }
 
 /**
@@ -311,11 +350,11 @@ export function reviewReplyTotal(report: Report): number {
 
 /** 入力がどこまで進んだか。0〜1 */
 export function completion(report: Report): number {
+  // 在庫数は在庫チェック側の担当なので、日報の進み具合には数えない
   const checks: boolean[] = [
     report.shift.headcount !== null,
     report.shift.production.length > 0 || report.shift.sales.length > 0,
-    Object.values(report.cans).some((c) => c.stock !== null),
-    Object.values(report.sweets).some((s) => s.stock !== null),
+    canMadeTotal(report) > 0,
     report.sales.total !== null,
     report.sales.guests !== null,
     report.customers.segment !== "",

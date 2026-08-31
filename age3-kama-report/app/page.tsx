@@ -8,15 +8,12 @@ import { Fold } from "@/components/Fold";
 import { ProductSection, IdleSection, ReviewSection } from "@/components/ProductSection";
 import { CustomerSection, SalesSection } from "@/components/SalesSection";
 import { ShiftSection } from "@/components/ShiftSection";
-import { CanStockSection, SweetStockSection } from "@/components/StockSections";
-import { LevelBadge, TextArea } from "@/components/ui";
+import { CanMadeSection } from "@/components/StockSections";
+import { TextArea } from "@/components/ui";
 import {
-  canSummary,
+  canMadeTotal,
   completion,
-  levelOf,
-  pct,
   productTotal,
-  sweetSummary,
   todayISO,
   unitPrice,
   weekdayOf,
@@ -40,8 +37,7 @@ function ReportForm() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const can = canSummary(report, settings);
-  const sweet = sweetSummary(report, settings);
+  const canMade = canMadeTotal(report);
   const done = completion(report);
 
   if (!mounted || loading) {
@@ -133,33 +129,11 @@ function ReportForm() {
       </Fold>
 
       <Fold
-        title="冷凍在庫（缶）"
-        emoji="🧊"
-        summary={
-          <span className="flex items-center gap-1.5">
-            <span className="tnum text-xs text-ink-soft">
-              {can.filled}/{can.total}
-            </span>
-            <LevelBadge level={levelOf(can.rate)} text={pct(can.rate)} />
-          </span>
-        }
+        title="缶商品の当日製造数"
+        emoji="🥞"
+        summary={<span className="tnum text-xs font-bold text-ink-soft">{canMade}個</span>}
       >
-        <CanStockSection report={report} settings={settings} patch={patch} />
-      </Fold>
-
-      <Fold
-        title="スイーツ在庫"
-        emoji="🥪"
-        summary={
-          <span className="flex items-center gap-1.5">
-            <span className="tnum text-xs text-ink-soft">
-              {sweet.filled}/{sweet.total}
-            </span>
-            <LevelBadge level={levelOf(sweet.rate)} text={pct(sweet.rate)} />
-          </span>
-        }
-      >
-        <SweetStockSection report={report} settings={settings} patch={patch} />
+        <CanMadeSection report={report} patch={patch} />
       </Fold>
 
       <Fold
@@ -221,6 +195,9 @@ function ReportForm() {
 
       <Link href={`/preview?date=${date}`} className="btn btn-primary mt-4 w-full">
         日報カードを見る →
+      </Link>
+      <Link href={`/stock?date=${date}`} className="btn btn-ghost mt-2 w-full">
+        🧊 在庫チェックはこちら
       </Link>
       <p className="mt-2 text-center text-xs text-ink-soft">
         入力は自動で保存されます。あとから続きを入れても大丈夫です。
