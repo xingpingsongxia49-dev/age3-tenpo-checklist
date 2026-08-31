@@ -21,6 +21,12 @@ const INK_SOFT = "#6b6b6b";
 const LINE = "#9a9a9a";
 const GREY = "#d9d9d9";
 const TODAY_BG = "#fff3d6";
+/** 目標に足りていない数字。赤字で目立たせる */
+const LOW = "#c0392b";
+/** 半分も無いものは、さらにマスごと薄い赤にする */
+const LOW_BG = "#fbe6e3";
+/** 作成数の添え数字。赤は「不足」に使うので、こちらは青にする */
+const MADE = "#2b6cb0";
 const PAD = 32;
 const SCALE = 2;
 
@@ -92,7 +98,7 @@ function drawTable(ctx: CanvasRenderingContext2D, table: Table, x0: number, y0: 
       }
       if (cell.sub) {
         ctx.font = font(11, 700);
-        ctx.fillStyle = cell.subColor ?? "#c0392b";
+        ctx.fillStyle = cell.subColor ?? MADE;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.fillText(cell.sub, x + w / 2, y + row.height / 2 + 3);
@@ -320,9 +326,19 @@ export async function renderSweetSheetPng(report: Report, settings: Settings): P
       const e = report.sweets[key] ?? { stock: null, madePieces: null, madeBlocks: null };
       rowPieces += e.madePieces ?? 0;
       rowBlocks += e.madeBlocks ?? 0;
+      const target = sweetTarget(key, settings);
+      // 数えた結果が定数に届いていなければ赤字。半分も無ければマスごと赤くする
+      const short = e.stock !== null && target > 0 && e.stock < target;
+      const veryShort = short && (e.stock as number) < target / 2;
       cells.push(
-        { text: String(sweetTarget(key, settings)), size: 14, color: INK_SOFT },
-        { text: n(e.stock), size: 17, bold: true },
+        { text: String(target), size: 14, color: INK_SOFT },
+        {
+          text: n(e.stock),
+          size: 17,
+          bold: true,
+          color: short ? LOW : INK,
+          bg: veryShort ? LOW_BG : undefined,
+        },
         { text: n(e.madePieces), size: 17, bold: true, bg: "#fce4d6" },
         { text: n(e.madeBlocks), size: 17, bold: true, bg: "#fce4d6" },
       );
@@ -368,7 +384,7 @@ export async function renderSweetSheetPng(report: Report, settings: Settings): P
     { cols, rows },
     "スイーツサンド在庫",
     `${prettyDate(report.date)}　Age.3 嘉麻店`,
-    "空欄は未入力です。グレーの欄はその生地の設定がない組み合わせです。",
+    "赤い数字＝定数に足りていません（さらに薄い赤のマスは半分も無い）。空欄は未入力、グレーの欄はその生地の設定がない組み合わせです。",
   );
 }
 
@@ -426,16 +442,21 @@ export async function renderCanSheetPng(
         { text: it.name, align: "left", size: 14 },
         { text: it.targetLabel || "—", size: 15, bold: true, color: INK_SOFT },
       ];
+      const target = canTarget(it.id, settings);
       for (const d of days) {
         const r = week[d];
         const e = r?.cans[it.id];
         const made = e?.made ?? 0;
+        const stock = e?.stock ?? null;
+        const short = stock !== null && target > 0 && stock < target;
+        const veryShort = short && stock < target / 2;
         cells.push({
-          text: n(e?.stock),
+          text: n(stock),
           sub: made ? `+${made}` : undefined,
           size: 18,
           bold: true,
-          bg: d === report.date ? TODAY_BG : undefined,
+          color: short ? LOW : INK,
+          bg: veryShort ? LOW_BG : d === report.date ? TODAY_BG : undefined,
         });
       }
       rows.push({ height: 42, cells });
@@ -466,7 +487,8 @@ export async function renderCanSheetPng(
     (it) => canTarget(it.id, settings) !== it.target,
   );
   const note =
-    "大きい数字＝現在庫数、赤い数字＝その日の作成数。色のついた列が今日です。" +
+    "大きい数字＝現在庫数。赤い数字は絶対在庫数に足りていません（薄い赤のマスは半分も無い）。" +
+    "小さい青い数字＝その日の作成数。黄色い列が今日です。" +
     (changed.length ? `　※目標を変更中：${changed.map((c) => c.name).join("・")}` : "");
 
   return paint({ cols, rows }, "冷凍在庫（缶）", `${prettyDate(report.date)} の週　Age.3 嘉麻店`, note);
