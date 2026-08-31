@@ -1,19 +1,21 @@
 "use client";
 
 import { CheckGrid, NumberField, Stepper, TextArea } from "@/components/ui";
-import { productTotal, reviewReplyTotal, topProduct } from "@/lib/calc";
+import { productName, productTotal, reviewReplyTotal, topProduct } from "@/lib/calc";
 import { IDLE_TASKS, PRODUCT_GROUPS, REVIEW_STORES } from "@/lib/masters";
-import type { Report } from "@/lib/types";
+import type { Report, Settings } from "@/lib/types";
 
 /** 商品別販売数。一番売れた商品はその場で自動判定して光らせる */
 export function ProductSection({
   report,
+  settings,
   patch,
 }: {
   report: Report;
+  settings: Settings;
   patch: (fn: (r: Report) => Report) => void;
 }) {
-  const top = topProduct(report);
+  const top = topProduct(report, settings);
   const set = (id: string, v: number | null) =>
     patch((r) => ({ ...r, products: { ...r.products, [id]: v ?? 0 } }));
 
@@ -42,6 +44,7 @@ export function ProductSection({
             {g.items.map((it) => {
               const n = report.products[it.id] ?? 0;
               const isTop = top?.id === it.id;
+              const label = productName(it.id, settings);
               return (
                 <div
                   key={it.id}
@@ -51,9 +54,9 @@ export function ProductSection({
                 >
                   <span className="flex-1 text-sm font-medium leading-tight">
                     {isTop ? <span aria-hidden>🏆 </span> : null}
-                    {it.name}
+                    {label}
                   </span>
-                  <Stepper value={n} onChange={(v) => set(it.id, v)} label={it.name} max={999} />
+                  <Stepper value={n} onChange={(v) => set(it.id, v)} label={label} max={999} />
                 </div>
               );
             })}

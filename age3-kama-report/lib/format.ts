@@ -2,6 +2,7 @@ import {
   canSummary,
   prettyDate,
   pct,
+  productName,
   productTotal,
   reviewReplyTotal,
   sweetBlocks,
@@ -41,7 +42,7 @@ function money(n: number | null | undefined): string {
 export function toLineText(report: Report, settings: Settings): string {
   const can = canSummary(report, settings);
   const sweet = sweetSummary(report, settings);
-  const top = topProduct(report);
+  const top = topProduct(report, settings);
   const L: string[] = [];
 
   L.push(`📅 ${prettyDate(report.date)}　Age.3 嘉麻店 日報`);
@@ -125,7 +126,9 @@ export function toLineText(report: Report, settings: Settings): string {
   L.push("");
   L.push("【販売個数（詳細）】");
   for (const g of PRODUCT_GROUPS) {
-    const lines = g.items.map((it) => `▶︎ ${it.name}：${pt(report.products[it.id])}`);
+    const lines = g.items.map(
+      (it) => `▶︎ ${productName(it.id, settings)}：${pt(report.products[it.id])}`,
+    );
     L.push(`${g.emoji}${g.name}`);
     L.push(...lines);
     L.push("");

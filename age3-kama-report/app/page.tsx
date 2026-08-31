@@ -167,7 +167,7 @@ function ReportForm() {
         emoji="🍦"
         summary={<span className="tnum text-xs font-bold text-ink-soft">{productTotal(report)}点</span>}
       >
-        <ProductSection report={report} patch={patch} />
+        <ProductSection report={report} settings={settings} patch={patch} />
       </Fold>
 
       <Fold

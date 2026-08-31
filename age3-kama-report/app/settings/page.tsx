@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 
 import { Fold } from "@/components/Fold";
 import { Section } from "@/components/ui";
-import { canTarget, emptySettings, sweetTarget } from "@/lib/calc";
-import { CAN_GROUPS, SWEET_ITEMS, SWEET_VARIANTS, sweetKey } from "@/lib/masters";
+import { canTarget, emptySettings, productName, sweetTarget } from "@/lib/calc";
+import { CAN_GROUPS, PRODUCT_GROUPS, SWEET_ITEMS, SWEET_VARIANTS, sweetKey } from "@/lib/masters";
 import { loadSettings, remoteAvailable, saveSettings } from "@/lib/storage";
 import type { Settings } from "@/lib/types";
 
@@ -169,6 +169,50 @@ export default function SettingsPage() {
         ))}
       </Fold>
 
+      <Fold title="商品別販売数の商品名" emoji="🍦">
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
+          季節で入れ替わる商品はここで名前を書き換えてください。
+          空欄にすると元の名前に戻ります。過去の日報の数字はそのまま残ります。
+        </p>
+        {PRODUCT_GROUPS.map((g) => (
+          <div key={g.id} className="mb-4">
+            <h3 className="mb-1 rounded-lg bg-cream-deep px-3 py-1.5 text-sm font-bold">
+              {g.emoji} {g.name}
+            </h3>
+            {g.items.map((it) => {
+              const custom = settings.productNames?.[it.id] ?? "";
+              return (
+                <label
+                  key={it.id}
+                  className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
+                >
+                  <span className="w-28 shrink-0 text-xs text-ink-soft">{it.name}</span>
+                  <input
+                    value={custom}
+                    placeholder={it.name}
+                    aria-label={`${it.name}の表示名`}
+                    onChange={(e) =>
+                      update({
+                        ...settings,
+                        productNames: { ...settings.productNames, [it.id]: e.target.value },
+                      })
+                    }
+                    className="field flex-1"
+                  />
+                </label>
+              );
+            })}
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => update({ ...settings, productNames: {} })}
+          className="btn btn-ghost w-full"
+        >
+          すべて元の商品名に戻す
+        </button>
+      </Fold>
+
       <Section title="保存先" emoji="💾">
         {db === null ? (
           <p className="text-sm text-ink-soft">確認中…</p>
@@ -197,13 +241,24 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => {
-            void fetch("/api/auth", { method: "DELETE" }).then(() => {
-              window.location.href = "/login";
+            void fetch("/api/auth/admin", { method: "DELETE" }).then(() => {
+              window.location.href = "/";
             });
           }}
           className="btn btn-ghost mt-3 w-full"
         >
-          パスコードを解除してログアウト
+          🔒 設定に鍵を掛けて出る
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            void fetch("/api/auth", { method: "DELETE" }).then(() => {
+              window.location.href = "/login";
+            });
+          }}
+          className="btn btn-ghost mt-2 w-full"
+        >
+          アプリからログアウト
         </button>
       </Section>
     </main>

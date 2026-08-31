@@ -45,7 +45,7 @@ export function prettyDate(iso: string): string {
 }
 
 export function emptySettings(): Settings {
-  return { staff: [...DEFAULT_STAFF], canTargets: {}, sweetTargets: {} };
+  return { staff: [...DEFAULT_STAFF], canTargets: {}, sweetTargets: {}, productNames: {} };
 }
 
 /** 何も入っていない日報。日付だけ決まっている状態 */
@@ -274,9 +274,16 @@ export function productTotal(report: Report): number {
   return Object.values(report.products).reduce((s, n) => s + (n || 0), 0);
 }
 
+/** 設定の上書きを見たうえでの、商品別販売数の商品名 */
+export function productName(id: string, settings?: Settings): string {
+  const override = settings?.productNames?.[id]?.trim();
+  return override || PRODUCT_INDEX[id]?.name || id;
+}
+
 /** 一番売れた商品。同数なら先に並んでいるほうを採る */
 export function topProduct(
   report: Report,
+  settings?: Settings,
 ): { id: string; name: string; group: string; emoji: string; count: number } | null {
   let best: { id: string; count: number } | null = null;
   for (const g of PRODUCT_GROUPS) {
@@ -287,7 +294,13 @@ export function topProduct(
   }
   if (!best) return null;
   const meta = PRODUCT_INDEX[best.id];
-  return { id: best.id, count: best.count, name: meta.name, group: meta.group, emoji: meta.emoji };
+  return {
+    id: best.id,
+    count: best.count,
+    name: productName(best.id, settings),
+    group: meta.group,
+    emoji: meta.emoji,
+  };
 }
 
 /** 口コミ返信の合計 */

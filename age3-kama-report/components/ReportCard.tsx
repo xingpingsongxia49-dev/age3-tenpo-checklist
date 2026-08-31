@@ -71,7 +71,7 @@ function Gauge({
 export function ReportCard({ report, settings }: { report: Report; settings: Settings }) {
   const can = canSummary(report, settings);
   const sweet = sweetSummary(report, settings);
-  const top = topProduct(report);
+  const top = topProduct(report, settings);
   const noStaff = !report.shift.staffPresent;
   const lows = [...can.lowNames, ...sweet.lowNames];
   const tasks = [...report.idleTasks, report.idleNote].filter(Boolean).join("・");

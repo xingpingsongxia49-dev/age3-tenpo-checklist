@@ -98,6 +98,12 @@ export type Settings = {
   canTargets: Record<string, number>;
   /** sweetKey(商品ID, 系統) -> 定数（未設定なら masters.ts の初期値） */
   sweetTargets: Record<string, number>;
+  /**
+   * 商品別販売数の商品ID -> 表示名。
+   * 季節ものは名前が変わるので、設定画面から書き換えられるようにしてある。
+   * 未設定なら masters.ts の名前を使う。
+   */
+  productNames: Record<string, string>;
 };
 
 /** 充足率の3段階。緑＝十分／黄＝やや不足／赤＝大幅不足 */

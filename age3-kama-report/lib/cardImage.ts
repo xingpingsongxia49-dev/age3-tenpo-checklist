@@ -216,7 +216,7 @@ class Painter {
 function paint(p: Painter, report: Report, settings: Settings): void {
   const can = canSummary(report, settings);
   const sweet = sweetSummary(report, settings);
-  const top = topProduct(report);
+  const top = topProduct(report, settings);
   const { ctx } = p;
 
   // 見出し帯
