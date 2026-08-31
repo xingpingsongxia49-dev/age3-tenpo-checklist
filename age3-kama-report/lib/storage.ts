@@ -138,6 +138,44 @@ export async function deleteReport(date: string): Promise<void> {
   }
 }
 
+/**
+ * 日報を全部消す。端末内とサーバーの両方から消す。
+ * 設定（スタッフ名・目標数・商品名）は消さない。
+ */
+export async function clearAllReports(): Promise<{ remote: boolean }> {
+  writeLocal(REPORT_KEY, {});
+  if (!(await remoteAvailable())) return { remote: false };
+  try {
+    const res = await fetch("/api/reports", { method: "DELETE" });
+    return { remote: res.ok };
+  } catch {
+    return { remote: false };
+  }
+}
+
+/** サーバー側の状況。PINが環境変数で設定されているかも見る */
+export async function serverInfo(): Promise<{
+  db: boolean;
+  appPasscodeFromEnv: boolean;
+  adminPasscodeFromEnv: boolean;
+}> {
+  try {
+    const res = await fetch("/api/health", { cache: "no-store" });
+    const json = (await res.json()) as Partial<{
+      db: boolean;
+      appPasscodeFromEnv: boolean;
+      adminPasscodeFromEnv: boolean;
+    }>;
+    return {
+      db: Boolean(json.db),
+      appPasscodeFromEnv: Boolean(json.appPasscodeFromEnv),
+      adminPasscodeFromEnv: Boolean(json.adminPasscodeFromEnv),
+    };
+  } catch {
+    return { db: false, appPasscodeFromEnv: false, adminPasscodeFromEnv: false };
+  }
+}
+
 export async function loadSettings(): Promise<Settings> {
   if (await remoteAvailable()) {
     try {

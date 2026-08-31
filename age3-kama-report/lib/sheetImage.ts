@@ -21,6 +21,12 @@ const INK_SOFT = "#6b6b6b";
 const LINE = "#9a9a9a";
 const GREY = "#d9d9d9";
 const TODAY_BG = "#fff3d6";
+/** 目標に足りていない数字。赤字で目立たせる */
+const LOW = "#c0392b";
+/** 半分も無いものは、さらにマスごと薄い赤にする */
+const LOW_BG = "#fbe6e3";
+/** 作成数の添え数字。赤は「不足」に使うので、こちらは青にする */
+const MADE = "#2b6cb0";
 const PAD = 32;
 const SCALE = 2;
 
@@ -92,7 +98,7 @@ function drawTable(ctx: CanvasRenderingContext2D, table: Table, x0: number, y0: 
       }
       if (cell.sub) {
         ctx.font = font(11, 700);
-        ctx.fillStyle = cell.subColor ?? "#c0392b";
+        ctx.fillStyle = cell.subColor ?? MADE;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.fillText(cell.sub, x + w / 2, y + row.height / 2 + 3);
@@ -148,6 +154,65 @@ function n(v: number | null | undefined): string {
   return v === null || v === undefined ? "" : String(v);
 }
 
+/**
+ * A4縦1枚ぶんの大きさ（150dpiのCSSピクセル換算）。
+ * 印刷してファイルに綴じることを考えて、はみ出さない比率に固定する。
+ */
+const A4_W = 1240;
+const A4_H = 1754;
+
+/**
+ * 表をA4縦1枚ちょうどに収めてPNGにする。
+ * 列の幅と行の高さを、紙1枚に収まるように割り付け直す。
+ */
+async function paintA4(
+  table: Table,
+  title: string,
+  right: string,
+  note: string,
+): Promise<Blob> {
+  const usableW = A4_W - PAD * 2;
+  const scaleX = usableW / tableWidth(table);
+  const fitted: Table = {
+    cols: table.cols.map((c) => c * scaleX),
+    rows: table.rows,
+  };
+
+  // 見出し帯と注記を除いた残りに、行の高さを比率のまま伸ばして敷き詰める
+  const noteH = note ? 30 : 0;
+  const usableH = A4_H - PAD * 2 - 56 - 12 - noteH;
+  const scaleY = usableH / tableHeight(fitted);
+  fitted.rows = fitted.rows.map((r) => ({ ...r, height: r.height * scaleY }));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = A4_W * SCALE;
+  canvas.height = A4_H * SCALE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas 2d context が取れませんでした");
+  ctx.scale(SCALE, SCALE);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, A4_W, A4_H);
+
+  let y = PAD;
+  y += drawTitle(ctx, PAD, y, usableW, title, right);
+  y += 12;
+  y += drawTable(ctx, fitted, PAD, y);
+
+  if (note) {
+    ctx.font = font(13);
+    ctx.fillStyle = INK_SOFT;
+    ctx.textBaseline = "top";
+    ctx.fillText(note, PAD, y + 8);
+  }
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("画像の書き出しに失敗しました"))),
+      "image/png",
+    );
+  });
+}
+
 /** 組み上げた表を1枚のPNGにする */
 async function paint(
   table: Table,
@@ -198,9 +263,10 @@ async function paint(
  * 定数・現在庫数・作成個数・作成角数を並べる。紙と同じ並び。
  */
 export async function renderSweetSheetPng(report: Report, settings: Settings): Promise<Blob> {
-  const NAME_W = 190;
-  const CELL_W = 76;
-  const SUM_W = 116;
+  // 比率だけ決めておけば、paintA4 がA4縦の幅に合わせて割り付け直す
+  const NAME_W = 176;
+  const CELL_W = 57;
+  const SUM_W = 72;
   const cols = [NAME_W, ...Array(SWEET_VARIANTS.length * 4).fill(CELL_W), SUM_W];
 
   const rows: Table["rows"] = [];
@@ -260,9 +326,19 @@ export async function renderSweetSheetPng(report: Report, settings: Settings): P
       const e = report.sweets[key] ?? { stock: null, madePieces: null, madeBlocks: null };
       rowPieces += e.madePieces ?? 0;
       rowBlocks += e.madeBlocks ?? 0;
+      const target = sweetTarget(key, settings);
+      // 数えた結果が定数に届いていなければ赤字。半分も無ければマスごと赤くする
+      const short = e.stock !== null && target > 0 && e.stock < target;
+      const veryShort = short && (e.stock as number) < target / 2;
       cells.push(
-        { text: String(sweetTarget(key, settings)), size: 14, color: INK_SOFT },
-        { text: n(e.stock), size: 17, bold: true },
+        { text: String(target), size: 14, color: INK_SOFT },
+        {
+          text: n(e.stock),
+          size: 17,
+          bold: true,
+          color: short ? LOW : INK,
+          bg: veryShort ? LOW_BG : undefined,
+        },
         { text: n(e.madePieces), size: 17, bold: true, bg: "#fce4d6" },
         { text: n(e.madeBlocks), size: 17, bold: true, bg: "#fce4d6" },
       );
@@ -304,11 +380,11 @@ export async function renderSweetSheetPng(report: Report, settings: Settings): P
     ],
   });
 
-  return paint(
+  return paintA4(
     { cols, rows },
     "スイーツサンド在庫",
     `${prettyDate(report.date)}　Age.3 嘉麻店`,
-    "空欄は未入力です。グレーの欄はその生地の設定がない組み合わせです。",
+    "赤い数字＝定数に足りていません（さらに薄い赤のマスは半分も無い）。空欄は未入力、グレーの欄はその生地の設定がない組み合わせです。",
   );
 }
 
@@ -366,16 +442,21 @@ export async function renderCanSheetPng(
         { text: it.name, align: "left", size: 14 },
         { text: it.targetLabel || "—", size: 15, bold: true, color: INK_SOFT },
       ];
+      const target = canTarget(it.id, settings);
       for (const d of days) {
         const r = week[d];
         const e = r?.cans[it.id];
         const made = e?.made ?? 0;
+        const stock = e?.stock ?? null;
+        const short = stock !== null && target > 0 && stock < target;
+        const veryShort = short && stock < target / 2;
         cells.push({
-          text: n(e?.stock),
+          text: n(stock),
           sub: made ? `+${made}` : undefined,
           size: 18,
           bold: true,
-          bg: d === report.date ? TODAY_BG : undefined,
+          color: short ? LOW : INK,
+          bg: veryShort ? LOW_BG : d === report.date ? TODAY_BG : undefined,
         });
       }
       rows.push({ height: 42, cells });
@@ -406,7 +487,8 @@ export async function renderCanSheetPng(
     (it) => canTarget(it.id, settings) !== it.target,
   );
   const note =
-    "大きい数字＝現在庫数、赤い数字＝その日の作成数。色のついた列が今日です。" +
+    "大きい数字＝現在庫数。赤い数字は絶対在庫数に足りていません（薄い赤のマスは半分も無い）。" +
+    "小さい青い数字＝その日の作成数。黄色い列が今日です。" +
     (changed.length ? `　※目標を変更中：${changed.map((c) => c.name).join("・")}` : "");
 
   return paint({ cols, rows }, "冷凍在庫（缶）", `${prettyDate(report.date)} の週　Age.3 嘉麻店`, note);
