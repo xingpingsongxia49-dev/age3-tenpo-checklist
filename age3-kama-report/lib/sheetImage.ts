@@ -148,6 +148,65 @@ function n(v: number | null | undefined): string {
   return v === null || v === undefined ? "" : String(v);
 }
 
+/**
+ * A4縦1枚ぶんの大きさ（150dpiのCSSピクセル換算）。
+ * 印刷してファイルに綴じることを考えて、はみ出さない比率に固定する。
+ */
+const A4_W = 1240;
+const A4_H = 1754;
+
+/**
+ * 表をA4縦1枚ちょうどに収めてPNGにする。
+ * 列の幅と行の高さを、紙1枚に収まるように割り付け直す。
+ */
+async function paintA4(
+  table: Table,
+  title: string,
+  right: string,
+  note: string,
+): Promise<Blob> {
+  const usableW = A4_W - PAD * 2;
+  const scaleX = usableW / tableWidth(table);
+  const fitted: Table = {
+    cols: table.cols.map((c) => c * scaleX),
+    rows: table.rows,
+  };
+
+  // 見出し帯と注記を除いた残りに、行の高さを比率のまま伸ばして敷き詰める
+  const noteH = note ? 30 : 0;
+  const usableH = A4_H - PAD * 2 - 56 - 12 - noteH;
+  const scaleY = usableH / tableHeight(fitted);
+  fitted.rows = fitted.rows.map((r) => ({ ...r, height: r.height * scaleY }));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = A4_W * SCALE;
+  canvas.height = A4_H * SCALE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas 2d context が取れませんでした");
+  ctx.scale(SCALE, SCALE);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, A4_W, A4_H);
+
+  let y = PAD;
+  y += drawTitle(ctx, PAD, y, usableW, title, right);
+  y += 12;
+  y += drawTable(ctx, fitted, PAD, y);
+
+  if (note) {
+    ctx.font = font(13);
+    ctx.fillStyle = INK_SOFT;
+    ctx.textBaseline = "top";
+    ctx.fillText(note, PAD, y + 8);
+  }
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("画像の書き出しに失敗しました"))),
+      "image/png",
+    );
+  });
+}
+
 /** 組み上げた表を1枚のPNGにする */
 async function paint(
   table: Table,
@@ -198,9 +257,10 @@ async function paint(
  * 定数・現在庫数・作成個数・作成角数を並べる。紙と同じ並び。
  */
 export async function renderSweetSheetPng(report: Report, settings: Settings): Promise<Blob> {
-  const NAME_W = 190;
-  const CELL_W = 76;
-  const SUM_W = 116;
+  // 比率だけ決めておけば、paintA4 がA4縦の幅に合わせて割り付け直す
+  const NAME_W = 176;
+  const CELL_W = 57;
+  const SUM_W = 72;
   const cols = [NAME_W, ...Array(SWEET_VARIANTS.length * 4).fill(CELL_W), SUM_W];
 
   const rows: Table["rows"] = [];
@@ -304,7 +364,7 @@ export async function renderSweetSheetPng(report: Report, settings: Settings): P
     ],
   });
 
-  return paint(
+  return paintA4(
     { cols, rows },
     "スイーツサンド在庫",
     `${prettyDate(report.date)}　Age.3 嘉麻店`,

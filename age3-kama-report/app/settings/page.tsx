@@ -4,9 +4,15 @@ import { useEffect, useState } from "react";
 
 import { Fold } from "@/components/Fold";
 import { Section } from "@/components/ui";
-import { canTarget, emptySettings, productName, sweetTarget } from "@/lib/calc";
+import { canTarget, emptySettings, prettyDate, productName, sweetTarget, todayISO } from "@/lib/calc";
 import { CAN_GROUPS, PRODUCT_GROUPS, SWEET_ITEMS, SWEET_VARIANTS, sweetKey } from "@/lib/masters";
-import { loadSettings, remoteAvailable, saveSettings } from "@/lib/storage";
+import {
+  clearAllReports,
+  deleteReport,
+  loadSettings,
+  saveSettings,
+  serverInfo,
+} from "@/lib/storage";
 import { renderTargetTablePng, shareOrDownloadPng, type TableGroup } from "@/lib/tableImage";
 import type { Settings } from "@/lib/types";
 
@@ -62,7 +68,16 @@ function ShareTableButton({
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [db, setDb] = useState<boolean | null>(null);
+  const [info, setInfo] = useState<{
+    db: boolean;
+    appPasscodeFromEnv: boolean;
+    adminPasscodeFromEnv: boolean;
+  } | null>(null);
+  /** 削除の対象日。既定は今日 */
+  const [delDate, setDelDate] = useState(todayISO());
+  /** 全消しは2段階。1回目で確認、2回目で実行 */
+  const [confirmWipe, setConfirmWipe] = useState(false);
+  const [delNotice, setDelNotice] = useState<string | null>(null);
   const [newStaff, setNewStaff] = useState("");
   const [saved, setSaved] = useState(false);
   const [imageNotice, setImageNotice] = useState<string | null>(null);
@@ -70,7 +85,7 @@ export default function SettingsPage() {
   useEffect(() => {
     void (async () => {
       setSettings(await loadSettings());
-      setDb(await remoteAvailable());
+      setInfo(await serverInfo());
     })();
   }, []);
 
@@ -294,9 +309,9 @@ export default function SettingsPage() {
       </Fold>
 
       <Section title="保存先" emoji="💾">
-        {db === null ? (
+        {info === null ? (
           <p className="text-sm text-ink-soft">確認中…</p>
-        ) : db ? (
+        ) : info.db ? (
           <p className="text-sm">
             <span className="badge badge-ok">サーバー保存</span>
             <span className="ml-2 text-ink-soft">日報はデータベースに残ります。</span>
@@ -310,6 +325,118 @@ export default function SettingsPage() {
               設定すると、全員で同じ履歴を見られるようになります。
             </p>
           </div>
+        )}
+      </Section>
+
+      <Section title="PIN" emoji="🔑">
+        {info === null ? (
+          <p className="text-sm text-ink-soft">確認中…</p>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 border-t border-line py-2 first:border-t-0">
+              <span className="flex-1 text-sm font-bold">入店PIN</span>
+              <span className={`badge ${info.appPasscodeFromEnv ? "badge-info" : "badge-warn"}`}>
+                {info.appPasscodeFromEnv ? "環境変数で設定" : "コードの初期値（1959）"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 border-t border-line py-2">
+              <span className="flex-1 text-sm font-bold">管理PIN</span>
+              <span className={`badge ${info.adminPasscodeFromEnv ? "badge-info" : "badge-warn"}`}>
+                {info.adminPasscodeFromEnv ? "環境変数で設定" : "コードの初期値（3030）"}
+              </span>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+              「環境変数で設定」のときは、Vercelに入れた値がコードの初期値より優先されます。
+              PINを変えるときは Vercel の Settings → Environment Variables で
+              <code>APP_PASSCODE</code> / <code>ADMIN_PASSCODE</code> を書き換えて、
+              再デプロイしてください。安全のため、実際の値はここには出しません。
+            </p>
+          </>
+        )}
+      </Section>
+
+      <Section title="データの削除" emoji="🗑">
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
+          消せるのは日報だけです。スタッフ名・目標数・商品名の設定は残ります。
+          <b>元に戻せません。</b>
+        </p>
+
+        {delNotice ? (
+          <p className="mb-3 rounded-xl bg-info-bg px-3 py-2 text-sm font-bold text-info">
+            {delNotice}
+          </p>
+        ) : null}
+
+        <label className="mb-2 flex items-center gap-2">
+          <span className="w-16 shrink-0 text-sm text-ink-soft">日付</span>
+          <input
+            type="date"
+            value={delDate}
+            aria-label="削除する日付"
+            onChange={(e) => setDelDate(e.target.value || todayISO())}
+            className="field tnum flex-1 font-bold"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            if (!window.confirm(`${prettyDate(delDate)} の日報を消します。よろしいですか？`)) return;
+            void deleteReport(delDate).then(() => {
+              setDelNotice(`${prettyDate(delDate)} の日報を消しました。`);
+            });
+          }}
+          className="btn btn-ghost w-full"
+        >
+          この日の日報を消す
+        </button>
+
+        <div className="my-4 h-px bg-line" />
+
+        {/* 全消しは押し間違いが致命的なので、2回押させる */}
+        {confirmWipe ? (
+          <div className="rounded-2xl bg-low-bg p-3">
+            <p className="text-sm font-bold text-low">
+              すべての日報（履歴・分析のもとになる記録）を消します。
+              <br />
+              本当によろしいですか？
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmWipe(false)}
+                className="btn btn-ghost"
+              >
+                やめる
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void clearAllReports().then(({ remote }) => {
+                    setConfirmWipe(false);
+                    setDelNotice(
+                      remote
+                        ? "すべての日報を消しました。"
+                        : "この端末の日報を消しました（サーバー未接続のため端末内のみ）。",
+                    );
+                  });
+                }}
+                className="btn w-full bg-low font-bold text-white"
+              >
+                本当に消す
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmWipe(true);
+              setDelNotice(null);
+            }}
+            className="btn w-full border border-low bg-white font-bold text-low"
+          >
+            すべての日報を消す
+          </button>
         )}
       </Section>
 

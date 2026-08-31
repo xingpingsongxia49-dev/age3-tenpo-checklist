@@ -40,7 +40,9 @@ export async function middleware(req: NextRequest) {
   // 2段目：管理PIN。設定画面と、設定の書き込みだけに要る
   const needsAdmin =
     (pathname === "/settings" || (pathname.startsWith("/settings/") && pathname !== UNLOCK_PATH)) ||
-    (pathname === "/api/settings" && req.method !== "GET");
+    (pathname === "/api/settings" && req.method !== "GET") ||
+    // 日報を消すのは取り返しがつかないので、設定と同じ管理PINを要求する
+    (pathname.startsWith("/api/reports") && req.method === "DELETE");
 
   if (needsAdmin) {
     const admin = req.cookies.get(ADMIN_COOKIE)?.value;

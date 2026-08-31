@@ -73,6 +73,13 @@ export async function dbDeleteReport(date: string): Promise<void> {
   await sql`DELETE FROM reports WHERE date = ${date}`;
 }
 
+/** 日報を全部消す。設定（スタッフ名・目標数）は残す */
+export async function dbDeleteAllReports(): Promise<number> {
+  await ensureTables();
+  const { rowCount } = await sql`DELETE FROM reports`;
+  return rowCount ?? 0;
+}
+
 export async function dbGetSettings(): Promise<Settings> {
   await ensureTables();
   const { rows } = await sql<{ data: Settings }>`
