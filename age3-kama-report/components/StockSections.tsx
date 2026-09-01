@@ -1,7 +1,16 @@
 "use client";
 
 import { Bar, LevelBadge, Stepper } from "@/components/ui";
-import { canTarget, fillRate, levelOf, pct, sweetTarget } from "@/lib/calc";
+import {
+  canTarget,
+  fillRate,
+  levelOf,
+  makePlan,
+  pct,
+  PIECES_PER_BLOCK,
+  sweetMakeTotal,
+  sweetTarget,
+} from "@/lib/calc";
 import { CAN_GROUPS, SWEET_ITEMS, SWEET_VARIANTS, sweetKey } from "@/lib/masters";
 import type { Report, Settings, SweetEntry } from "@/lib/types";
 
@@ -119,14 +128,75 @@ export function SweetStockSection({
   settings: Settings;
   patch: (fn: (r: Report) => Report) => void;
 }) {
-  const set = (key: string, field: keyof SweetEntry, v: number | null) =>
+  const write = (key: string, next: Partial<SweetEntry>) =>
     patch((r) => ({
       ...r,
-      sweets: { ...r.sweets, [key]: { ...r.sweets[key], [field]: v } },
+      sweets: { ...r.sweets, [key]: { ...r.sweets[key], ...next } },
     }));
+
+  /**
+   * 現在庫数が変わったら、作成角数と作成個数もその場で入れ直す。
+   * 手で決めたマスだけはそのままにして、現場の判断を上書きしない。
+   */
+  const setStock = (key: string, target: number, stock: number | null) =>
+    patch((r) => {
+      const e = r.sweets[key] ?? { stock: null, madePieces: null, madeBlocks: null };
+      const next: SweetEntry = { ...e, stock };
+      if (!e.madeManual) {
+        const plan = makePlan(stock, target);
+        next.madeBlocks = plan ? plan.blocks : null;
+        next.madePieces = plan ? plan.pieces : null;
+      }
+      return { ...r, sweets: { ...r.sweets, [key]: next } };
+    });
+
+  /** 作成角数を手で決めた。1角＝2個なので、個数もそろえる */
+  const setBlocks = (key: string, blocks: number | null) =>
+    write(key, {
+      madeBlocks: blocks,
+      madePieces: blocks === null ? null : blocks * PIECES_PER_BLOCK,
+      madeManual: true,
+    });
+
+  /** 作成個数を手で決めた。角は割れないので、角数は切り上げてそろえる */
+  const setPieces = (key: string, pieces: number | null) =>
+    write(key, {
+      madePieces: pieces,
+      madeBlocks: pieces === null ? null : Math.ceil(pieces / PIECES_PER_BLOCK),
+      madeManual: true,
+    });
+
+  /** 手で決めるのをやめて、現在庫数からの自動計算に戻す */
+  const backToAuto = (key: string, target: number, stock: number | null) => {
+    const plan = makePlan(stock, target);
+    write(key, {
+      madeBlocks: plan ? plan.blocks : null,
+      madePieces: plan ? plan.pieces : null,
+      madeManual: false,
+    });
+  };
+
+  const total = sweetMakeTotal(report, settings);
 
   return (
     <div className="space-y-4">
+      <p className="rounded-xl bg-cream-deep px-3 py-2 text-xs leading-relaxed text-ink-soft">
+        現在庫数を入れると、<b className="text-ink">作成角数</b>と
+        <b className="text-ink">作成個数</b>が自動で出ます。1角＝2個なので、
+        足りないぶんを角数に切り上げて計算します。多め・少なめに作りたいときは、その数字を直接なおしてください。
+      </p>
+
+      {total.blocks > 0 ? (
+        <p className="rounded-xl border-l-4 border-l-gold bg-gold-soft px-3 py-2 text-sm font-bold">
+          今日つくる合計：
+          <span className="tnum">{total.blocks}</span>角（
+          <span className="tnum">{total.pieces}</span>個）
+          <span className="ml-1 text-xs font-medium text-ink-soft">
+            {total.items}品目
+          </span>
+        </p>
+      ) : null}
+
       {SWEET_ITEMS.map((it) => {
         const variants = SWEET_VARIANTS.filter((v) => it.targets[v.id] !== undefined);
         return (
@@ -136,6 +206,7 @@ export function SweetStockSection({
               const key = sweetKey(it.id, v.id);
               const e = report.sweets[key] ?? { stock: null, madePieces: null, madeBlocks: null };
               const target = sweetTarget(key, settings);
+              const plan = makePlan(e.stock, target);
               return (
                 <div key={v.id} className="mt-2 rounded-lg p-2" style={{ background: v.color === "#ffffff" ? "var(--color-cream)" : v.color }}>
                   <FillHead
@@ -148,16 +219,20 @@ export function SweetStockSection({
                     <span className="w-20 shrink-0 text-xs font-medium text-ink-soft">現在庫数</span>
                     <Stepper
                       value={e.stock}
-                      onChange={(n) => set(key, "stock", n)}
+                      onChange={(n) => setStock(key, target, n)}
                       label={`${it.name}${v.name}の現在庫数`}
                     />
                   </div>
+
+                  <MakeNote plan={plan} manual={e.madeManual === true} />
+
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <p className="mb-1 text-xs font-medium text-ink-soft">作成個数</p>
                       <Stepper
                         value={e.madePieces}
-                        onChange={(n) => set(key, "madePieces", n)}
+                        onChange={(n) => setPieces(key, n)}
+                        step={PIECES_PER_BLOCK}
                         label={`${it.name}${v.name}の作成個数`}
                         compact
                       />
@@ -166,12 +241,22 @@ export function SweetStockSection({
                       <p className="mb-1 text-xs font-medium text-ink-soft">作成角数</p>
                       <Stepper
                         value={e.madeBlocks}
-                        onChange={(n) => set(key, "madeBlocks", n)}
+                        onChange={(n) => setBlocks(key, n)}
                         label={`${it.name}${v.name}の作成角数`}
                         compact
                       />
                     </div>
                   </div>
+
+                  {e.madeManual ? (
+                    <button
+                      type="button"
+                      onClick={() => backToAuto(key, target, e.stock)}
+                      className="tap mt-2 w-full rounded-lg border border-line bg-cream px-2 py-1.5 text-xs font-bold text-ink-soft active:bg-line"
+                    >
+                      ↩︎ 現在庫数からの自動計算に戻す
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
@@ -179,6 +264,37 @@ export function SweetStockSection({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * 作成数がどこから出た数字なのかを1行で見せる。
+ * 「不足5個 → 3角＝6個」まで書くと、切り上げで1個多いことにその場で気づける。
+ */
+function MakeNote({
+  plan,
+  manual,
+}: {
+  plan: ReturnType<typeof makePlan>;
+  manual: boolean;
+}) {
+  if (manual) {
+    return (
+      <p className="mb-2 text-xs font-bold text-ink-soft">✍️ 作成数は手で決めた数字です</p>
+    );
+  }
+  if (!plan) return null;
+  if (plan.shortage === 0) {
+    return <p className="mb-2 text-xs font-bold text-ok">✓ 足りています（作成なし）</p>;
+  }
+  return (
+    <p className="mb-2 text-xs font-bold text-low">
+      不足 <span className="tnum">{plan.shortage}</span>個 → <span className="tnum">{plan.blocks}</span>角つくる ＝{" "}
+      <span className="tnum">{plan.pieces}</span>個
+      {plan.surplus > 0 ? (
+        <span className="font-medium text-ink-soft">（切り上げで{plan.surplus}個多め）</span>
+      ) : null}
+    </p>
   );
 }
 

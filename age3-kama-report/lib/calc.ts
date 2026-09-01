@@ -296,6 +296,58 @@ export function sweetBlocks(report: Report): number {
   );
 }
 
+/**
+ * 1角から取れる個数。
+ * 食パン2枚でクリームやフルーツを挟んだかたまりが1角。半分に切ると2個になる。
+ */
+export const PIECES_PER_BLOCK = 2;
+
+export type MakePlan = {
+  /** 目標に対して足りない個数 */
+  shortage: number;
+  /** 作る角数。角は割れないので切り上げる */
+  blocks: number;
+  /** その角数から取れる個数（角数 × 2） */
+  pieces: number;
+  /** 切り上げで目標より多くできるぶん。0か1 */
+  surplus: number;
+};
+
+/**
+ * 現在庫と目標から、今日つくる角数・個数を出す。
+ *
+ * 角は途中で割れないので、不足ぶんを2で割って切り上げる。
+ * 不足が奇数のときは1個ぶん多くできるが、足りないより多いほうが店としては安全なので切り上げでそろえる。
+ * 在庫が未入力、または目標がない品目は計算しようがないので null を返す。
+ */
+export function makePlan(stock: number | null, target: number): MakePlan | null {
+  if (stock === null || target <= 0) return null;
+  const shortage = Math.max(0, target - stock);
+  const blocks = Math.ceil(shortage / PIECES_PER_BLOCK);
+  const pieces = blocks * PIECES_PER_BLOCK;
+  return { shortage, blocks, pieces, surplus: pieces - shortage };
+}
+
+/** 在庫表ぜんぶで、今日つくる角数と個数の合計 */
+export function sweetMakeTotal(
+  report: Report,
+  settings: Settings,
+): { blocks: number; pieces: number; items: number } {
+  let blocks = 0;
+  let pieces = 0;
+  let items = 0;
+  for (const c of SWEET_CELLS) {
+    const key = sweetKey(c.item.id, c.variant);
+    const e = report.sweets[key];
+    const b = e?.madeBlocks ?? 0;
+    const p = e?.madePieces ?? 0;
+    if (b > 0 || p > 0) items += 1;
+    blocks += b;
+    pieces += p;
+  }
+  return { blocks, pieces, items };
+}
+
 /** 客単価。総売上 ÷ 客数（組）。割れないときは null */
 export function unitPrice(report: Report): number | null {
   const { total, guests } = report.sales;

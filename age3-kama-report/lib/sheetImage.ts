@@ -114,6 +114,38 @@ function drawTable(ctx: CanvasRenderingContext2D, table: Table, x0: number, y0: 
   return y - y0;
 }
 
+/** 注記の1行の高さ */
+const NOTE_LH = 18;
+const NOTE_SIZE = 13;
+
+/** 注記を幅に合わせて折り返す。日本語は単語の切れ目が無いので1文字ずつ詰めていく */
+function wrapNote(ctx: CanvasRenderingContext2D, note: string, maxW: number): string[] {
+  if (!note) return [];
+  ctx.font = font(NOTE_SIZE);
+  const lines: string[] = [];
+  let line = "";
+  for (const ch of note) {
+    const next = line + ch;
+    if (ctx.measureText(next).width > maxW && line) {
+      lines.push(line);
+      line = ch;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/** 折り返した注記を描く */
+function drawNote(ctx: CanvasRenderingContext2D, lines: string[], x: number, y: number): void {
+  ctx.font = font(NOTE_SIZE);
+  ctx.fillStyle = INK_SOFT;
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  lines.forEach((l, i) => ctx.fillText(l, x, y + i * NOTE_LH));
+}
+
 /** 表の全体の幅 */
 function tableWidth(t: Table): number {
   return t.cols.reduce((a, b) => a + b, 0);
@@ -178,8 +210,13 @@ async function paintA4(
     rows: table.rows,
   };
 
+  // 注記は折り返す。何行になるか先に測らないと、表の高さを決められない
+  const measure = document.createElement("canvas").getContext("2d");
+  if (!measure) throw new Error("canvas 2d context が取れませんでした");
+  const noteLines = wrapNote(measure, note, usableW);
+
   // 見出し帯と注記を除いた残りに、行の高さを比率のまま伸ばして敷き詰める
-  const noteH = note ? 30 : 0;
+  const noteH = noteLines.length ? noteLines.length * NOTE_LH + 12 : 0;
   const usableH = A4_H - PAD * 2 - 56 - 12 - noteH;
   const scaleY = usableH / tableHeight(fitted);
   fitted.rows = fitted.rows.map((r) => ({ ...r, height: r.height * scaleY }));
@@ -198,12 +235,7 @@ async function paintA4(
   y += 12;
   y += drawTable(ctx, fitted, PAD, y);
 
-  if (note) {
-    ctx.font = font(13);
-    ctx.fillStyle = INK_SOFT;
-    ctx.textBaseline = "top";
-    ctx.fillText(note, PAD, y + 8);
-  }
+  drawNote(ctx, noteLines, PAD, y + 8);
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -222,7 +254,11 @@ async function paint(
 ): Promise<Blob> {
   const w = tableWidth(table);
   const canvasW = w + PAD * 2;
-  const canvasH = 56 + tableHeight(table) + PAD * 2 + (note ? 30 : 0) + 12;
+  const measure = document.createElement("canvas").getContext("2d");
+  if (!measure) throw new Error("canvas 2d context が取れませんでした");
+  const noteLines = wrapNote(measure, note, w);
+  const canvasH =
+    56 + tableHeight(table) + PAD * 2 + (noteLines.length ? noteLines.length * NOTE_LH + 12 : 0) + 12;
 
   const canvas = document.createElement("canvas");
   canvas.width = canvasW * SCALE;
@@ -238,12 +274,7 @@ async function paint(
   y += 12;
   y += drawTable(ctx, table, PAD, y);
 
-  if (note) {
-    ctx.font = font(13);
-    ctx.fillStyle = INK_SOFT;
-    ctx.textBaseline = "top";
-    ctx.fillText(note, PAD, y + 8);
-  }
+  drawNote(ctx, noteLines, PAD, y + 8);
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -384,7 +415,7 @@ export async function renderSweetSheetPng(report: Report, settings: Settings): P
     { cols, rows },
     "スイーツサンド在庫",
     `${prettyDate(report.date)}　Age.3 嘉麻店`,
-    "赤い数字＝定数に足りていません（さらに薄い赤のマスは半分も無い）。空欄は未入力、グレーの欄はその生地の設定がない組み合わせです。",
+    "赤い数字＝定数に足りていません（さらに薄い赤のマスは半分も無い）。作成数は定数との差から自動で出しています（1角＝2個、足りないぶんを角数に切り上げ）。空欄は未入力、グレーの欄はその生地の設定がない組み合わせです。",
   );
 }
 
