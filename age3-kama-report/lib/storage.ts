@@ -153,26 +153,29 @@ export async function clearAllReports(): Promise<{ remote: boolean }> {
   }
 }
 
-/** サーバー側の状況。PINが環境変数で設定されているかも見る */
-export async function serverInfo(): Promise<{
-  db: boolean;
-  appPasscodeFromEnv: boolean;
-  adminPasscodeFromEnv: boolean;
-}> {
+/** サーバー側の状況（保存先の判定だけ） */
+export async function serverInfo(): Promise<{ db: boolean }> {
   try {
     const res = await fetch("/api/health", { cache: "no-store" });
-    const json = (await res.json()) as Partial<{
-      db: boolean;
-      appPasscodeFromEnv: boolean;
-      adminPasscodeFromEnv: boolean;
-    }>;
-    return {
-      db: Boolean(json.db),
-      appPasscodeFromEnv: Boolean(json.appPasscodeFromEnv),
-      adminPasscodeFromEnv: Boolean(json.adminPasscodeFromEnv),
-    };
+    const json = (await res.json()) as Partial<{ db: boolean }>;
+    return { db: Boolean(json.db) };
   } catch {
-    return { db: false, appPasscodeFromEnv: false, adminPasscodeFromEnv: false };
+    return { db: false };
+  }
+}
+
+/**
+ * 今使えるPIN。管理PINが要るので、設定画面の中からしか取れない。
+ * 取れなかったときは空で返し、画面側は出さない。
+ */
+export async function adminPins(): Promise<{ appPasscode: string; adminPasscode: string }> {
+  try {
+    const res = await fetch("/api/admin/pins", { cache: "no-store" });
+    if (!res.ok) return { appPasscode: "", adminPasscode: "" };
+    const json = (await res.json()) as Partial<{ appPasscode: string; adminPasscode: string }>;
+    return { appPasscode: json.appPasscode ?? "", adminPasscode: json.adminPasscode ?? "" };
+  } catch {
+    return { appPasscode: "", adminPasscode: "" };
   }
 }
 

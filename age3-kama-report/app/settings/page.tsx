@@ -7,6 +7,7 @@ import { Section } from "@/components/ui";
 import { canTarget, emptySettings, prettyDate, productName, sweetTarget, todayISO } from "@/lib/calc";
 import { CAN_GROUPS, PRODUCT_GROUPS, SWEET_ITEMS, SWEET_VARIANTS, sweetKey } from "@/lib/masters";
 import {
+  adminPins,
   clearAllReports,
   deleteReport,
   loadSettings,
@@ -68,11 +69,9 @@ function ShareTableButton({
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [info, setInfo] = useState<{
-    db: boolean;
-    appPasscodeFromEnv: boolean;
-    adminPasscodeFromEnv: boolean;
-  } | null>(null);
+  const [info, setInfo] = useState<{ db: boolean } | null>(null);
+  /** 今使えるPIN。管理PINの内側でしか取れない */
+  const [pins, setPins] = useState<{ appPasscode: string; adminPasscode: string } | null>(null);
   /** 削除の対象日。既定は今日 */
   const [delDate, setDelDate] = useState(todayISO());
   /** 全消しは2段階。1回目で確認、2回目で実行 */
@@ -86,6 +85,7 @@ export default function SettingsPage() {
     void (async () => {
       setSettings(await loadSettings());
       setInfo(await serverInfo());
+      setPins(await adminPins());
     })();
   }, []);
 
@@ -329,27 +329,23 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="PIN" emoji="🔑">
-        {info === null ? (
+        {pins === null ? (
           <p className="text-sm text-ink-soft">確認中…</p>
         ) : (
           <>
             <div className="flex items-center gap-2 border-t border-line py-2 first:border-t-0">
               <span className="flex-1 text-sm font-bold">入店PIN</span>
-              <span className={`badge ${info.appPasscodeFromEnv ? "badge-info" : "badge-warn"}`}>
-                {info.appPasscodeFromEnv ? "環境変数で設定" : "コードの初期値（1959）"}
-              </span>
+              <span className="tnum text-lg font-bold tracking-[0.2em]">{pins.appPasscode}</span>
             </div>
             <div className="flex items-center gap-2 border-t border-line py-2">
               <span className="flex-1 text-sm font-bold">管理PIN</span>
-              <span className={`badge ${info.adminPasscodeFromEnv ? "badge-info" : "badge-warn"}`}>
-                {info.adminPasscodeFromEnv ? "環境変数で設定" : "コードの初期値（3030）"}
-              </span>
+              <span className="tnum text-lg font-bold tracking-[0.2em]">{pins.adminPasscode}</span>
             </div>
             <p className="mt-2 text-xs leading-relaxed text-ink-soft">
-              「環境変数で設定」のときは、Vercelに入れた値がコードの初期値より優先されます。
-              PINを変えるときは Vercel の Settings → Environment Variables で
-              <code>APP_PASSCODE</code> / <code>ADMIN_PASSCODE</code> を書き換えて、
-              再デプロイしてください。安全のため、実際の値はここには出しません。
+              今このアプリで使えるPINです。忘れたときのためにここに出しています
+              （この画面は管理PINを知っている人しか開けません）。
+              <br />
+              変更したいときは声をかけてください。コードを1か所書き換えて反映します。
             </p>
           </>
         )}

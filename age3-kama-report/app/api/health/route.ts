@@ -7,14 +7,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * 画面側が「サーバーに保存できるか」を判断するための問い合わせ先。
- * あわせて、PINが環境変数で設定されているかも返す。
- * 設定されていないとコードの初期値が使われるので、設定画面で気づけるようにする。
- * PINの値そのものは返さない。
+ * 入店PINさえあれば誰でも叩けるので、秘密は載せない。
+ * PINの確認は管理PINが要る /api/admin/pins にある。
  */
 export async function GET() {
-  return NextResponse.json({
-    db: hasDb(),
-    appPasscodeFromEnv: Boolean(process.env.APP_PASSCODE),
-    adminPasscodeFromEnv: Boolean(process.env.ADMIN_PASSCODE),
-  });
+  return NextResponse.json({ db: hasDb() });
 }

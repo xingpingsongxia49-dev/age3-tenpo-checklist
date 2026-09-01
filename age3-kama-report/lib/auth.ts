@@ -4,12 +4,18 @@
  * 本格的なログインは要らない、という要件なので、店舗で共有するパスコードを持つ。
  * 段階は2つ。
  *
- *  1. 入店PIN（APP_PASSCODE）… アプリ全体。アルバイト含む全員が使う
- *  2. 管理PIN（ADMIN_PASSCODE）… 設定画面だけ。スタッフ名や在庫の目標数を
- *     書き換えられる場所なので、入店PINを知っていても入れないようにしてある
+ *  1. 入店PIN … アプリ全体。アルバイト含む全員が使う
+ *  2. 管理PIN … 設定画面だけ。スタッフ名や在庫の目標数を書き換えられる場所なので、
+ *     入店PINを知っていても入れないようにしてある
  *
  * 合っていたらパスコードのハッシュをCookieに入れ、middleware がそれを見て通す。
  * パスコード自体はCookieに入れない。
+ *
+ * PINはここに直接書いてある。以前は環境変数で上書きできるようにしていたが、
+ * Vercel側に古い値が残っているとコードを直してもPINが変わらず、
+ * 「どちらが効いているのか分からない」状態になった。
+ * 変えたい値が1か所にある方が事故が少ないので、ここだけを見るようにしてある。
+ * 変更するときはこの2行を書き換えてデプロイする。
  */
 
 /** 入店PINのCookie名 */
@@ -18,16 +24,17 @@ export const AUTH_COOKIE = "kama_pass";
 /** 管理PIN（設定画面）のCookie名 */
 export const ADMIN_COOKIE = "kama_admin";
 
-/** 環境変数が無いときの初期値。Vercel側で設定して上書きする */
-export const DEFAULT_PASSCODE = "1959";
-export const DEFAULT_ADMIN_PASSCODE = "3030";
+/** 入店PIN。アプリ全体 */
+export const APP_PASSCODE = "1959";
+/** 管理PIN。設定画面だけ */
+export const ADMIN_PASSCODE = "3030";
 
 export function expectedPasscode(): string {
-  return process.env.APP_PASSCODE || DEFAULT_PASSCODE;
+  return APP_PASSCODE;
 }
 
 export function expectedAdminPasscode(): string {
-  return process.env.ADMIN_PASSCODE || DEFAULT_ADMIN_PASSCODE;
+  return ADMIN_PASSCODE;
 }
 
 /**
