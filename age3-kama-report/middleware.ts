@@ -45,7 +45,9 @@ export async function middleware(req: NextRequest) {
     (pathname === "/settings" || (pathname.startsWith("/settings/") && pathname !== UNLOCK_PATH)) ||
     (pathname === "/api/settings" && req.method !== "GET") ||
     // 日報を消すのは取り返しがつかないので、設定と同じ管理PINを要求する
-    (pathname.startsWith("/api/reports") && req.method === "DELETE");
+    (pathname.startsWith("/api/reports") && req.method === "DELETE") ||
+    // 管理者しか見てはいけないもの（PINの確認など）
+    pathname.startsWith("/api/admin");
 
   if (needsAdmin) {
     const admin = req.cookies.get(ADMIN_COOKIE)?.value;
