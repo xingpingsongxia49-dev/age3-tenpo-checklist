@@ -16,6 +16,9 @@ const PUBLIC = new Set([
   "/manifest.webmanifest",
   "/icon-192.png",
   "/icon-512.png",
+  // app/icon.png から Next.js が作るタブ用アイコン。
+  // ここを通しておかないとログイン画面でファビコンが出ない
+  "/icon.png",
 ]);
 
 /** 設定画面の中で、管理PINを入れるためのページだけは入店PINだけで通す */
