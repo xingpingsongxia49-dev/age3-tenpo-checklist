@@ -1,8 +1,8 @@
 "use client";
 
 import { CheckGrid, NumberField, Stepper, TextArea } from "@/components/ui";
-import { productName, productTotal, reviewReplyTotal, topProduct } from "@/lib/calc";
-import { IDLE_TASKS, PRODUCT_GROUPS, REVIEW_STORES } from "@/lib/masters";
+import { productRowsOf, productTotal, reviewReplyTotal, topProduct } from "@/lib/calc";
+import { IDLE_TASKS, REVIEW_STORES } from "@/lib/masters";
 import type { Report, Settings } from "@/lib/types";
 
 /** 商品別販売数。一番売れた商品はその場で自動判定して光らせる */
@@ -34,17 +34,22 @@ export function ProductSection({
         <p className="tnum mt-1 text-xs text-ink-soft">販売合計 {productTotal(report)}点</p>
       </div>
 
-      {PRODUCT_GROUPS.map((g) => (
+      {productRowsOf(report, settings).map((g) => (
         <div key={g.id}>
           <h3 className="mb-2 flex items-center gap-1.5 rounded-lg bg-cream-deep px-3 py-2 text-sm font-bold">
             <span aria-hidden>{g.emoji}</span>
             {g.name}
           </h3>
+          {g.id === "__retired" ? (
+            <p className="mb-2 text-xs leading-relaxed text-ink-soft">
+              設定で一覧から外したあとも、この日報には数字が残っています。0に直すか、そのままにしておけます。
+            </p>
+          ) : null}
           <div className="space-y-2">
             {g.items.map((it) => {
               const n = report.products[it.id] ?? 0;
               const isTop = top?.id === it.id;
-              const label = productName(it.id, settings);
+              const label = it.name;
               return (
                 <div
                   key={it.id}

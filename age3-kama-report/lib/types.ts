@@ -123,6 +123,23 @@ export type Settings = {
    * 未設定なら masters.ts の名前を使う。
    */
   productNames: Record<string, string>;
+  /**
+   * 一覧から消した商品のID。
+   * 消すのは入力欄からだけで、過去の日報に入っている数字はそのまま残す。
+   * 設定画面から戻せる。
+   */
+  productHidden: string[];
+  /** 設定画面から足した商品。既存のグループにぶら下げる */
+  productExtra: ExtraProduct[];
+};
+
+/** 設定画面から足した商品別販売数の1品目 */
+export type ExtraProduct = {
+  /** 他とぶつからないよう cx_ ではじまるIDを振る */
+  id: string;
+  /** どのグループに入れるか。masters.ts の ProductGroup.id */
+  group: string;
+  name: string;
 };
 
 /** 充足率の3段階。緑＝十分／黄＝やや不足／赤＝大幅不足 */

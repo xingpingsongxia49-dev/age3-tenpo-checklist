@@ -3,7 +3,7 @@ import {
   canSummary,
   prettyDate,
   pct,
-  productName,
+  productRowsOf,
   productTotal,
   reviewReplyTotal,
   sweetBlocks,
@@ -14,7 +14,6 @@ import {
 } from "./calc";
 import {
   CAN_GROUPS,
-  PRODUCT_GROUPS,
   REVIEW_STORES,
   SWEET_ITEMS,
   SWEET_VARIANTS,
@@ -121,9 +120,9 @@ export function toLineText(report: Report, settings: Settings): string {
   }
   L.push("");
   L.push("【販売個数（詳細）】");
-  for (const g of PRODUCT_GROUPS) {
+  for (const g of productRowsOf(report, settings)) {
     const lines = g.items.map(
-      (it) => `▶︎ ${productName(it.id, settings)}：${pt(report.products[it.id])}`,
+      (it) => `▶︎ ${it.name}：${pt(report.products[it.id])}`,
     );
     L.push(`${g.emoji}${g.name}`);
     L.push(...lines);
