@@ -131,6 +131,17 @@ export type Settings = {
   productHidden: string[];
   /** 設定画面から足した商品。既存のグループにぶら下げる */
   productExtra: ExtraProduct[];
+  /**
+   * 商品別販売数のカテゴリID -> 表示名。
+   * 未設定なら masters.ts の名前を使う。
+   */
+  productGroupNames: Record<string, string>;
+  /**
+   * 一覧から消したカテゴリのID。
+   * 中の商品ごと入力欄から見えなくなるが、過去の日報の数字は残す。
+   * 設定画面から戻せる。
+   */
+  productGroupHidden: string[];
 };
 
 /** 設定画面から足した商品別販売数の1品目 */

@@ -52,6 +52,8 @@ export function emptySettings(): Settings {
     productNames: {},
     productHidden: [],
     productExtra: [],
+    productGroupNames: {},
+    productGroupHidden: [],
   };
 }
 
@@ -405,10 +407,11 @@ function extraOf(settings?: Settings): Map<string, { group: string; name: string
  */
 export function productGroupsOf(settings?: Settings): ProductRowGroup[] {
   const hidden = new Set(settings?.productHidden ?? []);
+  const hiddenGroups = new Set(settings?.productGroupHidden ?? []);
   const extras = settings?.productExtra ?? [];
-  return PRODUCT_GROUPS.map((g) => ({
+  return PRODUCT_GROUPS.filter((g) => !hiddenGroups.has(g.id)).map((g) => ({
     id: g.id,
-    name: g.name,
+    name: productGroupName(g.id, settings),
     emoji: g.emoji,
     items: [
       ...g.items
@@ -436,6 +439,12 @@ export function productRowsOf(report: Report, settings?: Settings): ProductRowGr
     .filter(([id, n]) => (n || 0) > 0 && !shown.has(id))
     .map(([id]) => ({ id, name: productName(id, settings), custom: extras.has(id) }));
   return retired.length ? [...groups, { ...RETIRED_GROUP, items: retired }] : groups;
+}
+
+/** 設定の上書きを見たうえでの、商品別販売数のカテゴリ名 */
+export function productGroupName(groupId: string, settings?: Settings): string {
+  const override = settings?.productGroupNames?.[groupId]?.trim();
+  return override || PRODUCT_GROUPS.find((g) => g.id === groupId)?.name || groupId;
 }
 
 /** 設定の上書きを見たうえでの、商品別販売数の商品名 */

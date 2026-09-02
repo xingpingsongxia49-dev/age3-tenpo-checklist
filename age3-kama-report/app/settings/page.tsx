@@ -9,6 +9,7 @@ import {
   emptySettings,
   newProductId,
   prettyDate,
+  productGroupName,
   sweetTarget,
   todayISO,
 } from "@/lib/calc";
@@ -67,9 +68,20 @@ function ProductEditor({
   const [draft, setDraft] = useState<Record<string, string>>({});
   const hidden = settings.productHidden ?? [];
   const extras = settings.productExtra ?? [];
+  const hiddenGroups = settings.productGroupHidden ?? [];
 
   const rename = (id: string, name: string) =>
     update({ ...settings, productNames: { ...settings.productNames, [id]: name } });
+
+  const renameGroup = (id: string, name: string) =>
+    update({ ...settings, productGroupNames: { ...settings.productGroupNames, [id]: name } });
+
+  /** カテゴリを一覧から隠す。中の商品ごと見えなくなるが、過去の数字は残る */
+  const hideGroup = (id: string) =>
+    update({ ...settings, productGroupHidden: [...hiddenGroups.filter((x) => x !== id), id] });
+
+  const unhideGroup = (id: string) =>
+    update({ ...settings, productGroupHidden: hiddenGroups.filter((x) => x !== id) });
 
   /** 元からある商品を一覧から隠す */
   const hide = (id: string) =>
@@ -100,20 +112,27 @@ function ProductEditor({
     setDraft((d) => ({ ...d, [groupId]: "" }));
   };
 
-  const hiddenMaster = PRODUCT_GROUPS.flatMap((g) =>
-    g.items.filter((it) => hidden.includes(it.id)).map((it) => ({ ...it, group: g.name })),
+  // 消したカテゴリの中の商品は、まずカテゴリを戻すのが先なのでここには出さない
+  const hiddenMaster = PRODUCT_GROUPS.filter((g) => !hiddenGroups.includes(g.id)).flatMap((g) =>
+    g.items
+      .filter((it) => hidden.includes(it.id))
+      .map((it) => ({ ...it, group: productGroupName(g.id, settings) })),
   );
 
   return (
     <>
-      {PRODUCT_GROUPS.map((g) => {
+      {PRODUCT_GROUPS.filter((g) => !hiddenGroups.includes(g.id)).map((g) => {
         const live = g.items.filter((it) => !hidden.includes(it.id));
         const mine = extras.filter((e) => e.group === g.id && !hidden.includes(e.id));
         return (
           <div key={g.id} className="mb-5">
-            <h3 className="mb-1 rounded-lg bg-cream-deep px-3 py-1.5 text-sm font-bold">
-              {g.emoji} {g.name}
-            </h3>
+            <GroupHeadEditor
+              emoji={g.emoji}
+              value={settings.productGroupNames?.[g.id] ?? ""}
+              originalName={g.name}
+              onChange={(v) => renameGroup(g.id, v)}
+              onDelete={() => hideGroup(g.id)}
+            />
 
             {live.map((it) => (
               <ProductRowEditor
@@ -141,7 +160,7 @@ function ProductEditor({
             <div className="mt-2 flex items-center gap-2">
               <input
                 value={draft[g.id] ?? ""}
-                placeholder={`${g.name}に商品を足す`}
+                placeholder={`${productGroupName(g.id, settings)}に商品を足す`}
                 aria-label={`${g.name}に足す商品名`}
                 onChange={(e) => setDraft((d) => ({ ...d, [g.id]: e.target.value }))}
                 onKeyDown={(e) => {
@@ -164,6 +183,32 @@ function ProductEditor({
           </div>
         );
       })}
+
+      {hiddenGroups.length ? (
+        <div className="mb-4 rounded-xl border border-line bg-cream-deep p-3">
+          <p className="mb-2 text-xs font-bold text-ink-soft">
+            一覧から消したカテゴリ（{hiddenGroups.length}件）
+          </p>
+          {PRODUCT_GROUPS.filter((g) => hiddenGroups.includes(g.id)).map((g) => (
+            <div
+              key={g.id}
+              className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
+            >
+              <span className="flex-1 text-sm font-bold leading-tight">
+                <span aria-hidden>{g.emoji} </span>
+                {productGroupName(g.id, settings)}
+              </span>
+              <button
+                type="button"
+                onClick={() => unhideGroup(g.id)}
+                className="tap shrink-0 rounded-lg border border-line bg-cream px-3 py-1.5 text-xs font-bold active:bg-line"
+              >
+                戻す
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {hiddenMaster.length ? (
         <div className="mb-4 rounded-xl border border-line bg-cream-deep p-3">
@@ -194,13 +239,87 @@ function ProductEditor({
       <button
         type="button"
         onClick={() =>
-          update({ ...settings, productNames: {}, productHidden: [], productExtra: [] })
+          update({
+            ...settings,
+            productNames: {},
+            productHidden: [],
+            productExtra: [],
+            productGroupNames: {},
+            productGroupHidden: [],
+          })
         }
         className="btn btn-ghost w-full"
       >
         商品の設定をすべて最初の状態に戻す
       </button>
     </>
+  );
+}
+
+/**
+ * カテゴリの見出し。名前の書き換えと、カテゴリごと消すボタン。
+ * 中の商品もまとめて消えるので、確認は2段階にしてある。
+ */
+function GroupHeadEditor({
+  emoji,
+  value,
+  originalName,
+  onChange,
+  onDelete,
+}: {
+  emoji: string;
+  value: string;
+  originalName: string;
+  onChange: (v: string) => void;
+  onDelete: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div className="mb-1 rounded-lg bg-cream-deep p-2">
+      <div className="flex items-center gap-2">
+        <span aria-hidden className="shrink-0 text-base">
+          {emoji}
+        </span>
+        <input
+          value={value}
+          placeholder={originalName}
+          aria-label={`${originalName}カテゴリの表示名`}
+          onChange={(e) => onChange(e.target.value)}
+          className="field flex-1 font-bold"
+        />
+        {confirming ? null : (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            aria-label={`${originalName}カテゴリを一覧から消す`}
+            className="tap shrink-0 rounded-lg border border-line bg-cream px-3 py-1.5 text-xs font-bold text-ink-soft active:bg-line"
+          >
+            消す
+          </button>
+        )}
+      </div>
+      {confirming ? (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="flex-1 text-xs font-bold leading-tight text-low">
+            中の商品もまとめて一覧から消えます（過去の数字は残ります）
+          </span>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="tap shrink-0 rounded-lg bg-low px-3 py-1.5 text-xs font-bold text-white"
+          >
+            消す
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="tap shrink-0 rounded-lg border border-line bg-cream px-2 py-1.5 text-xs font-bold text-ink-soft"
+          >
+            やめる
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -487,9 +606,10 @@ export default function SettingsPage() {
 
       <Fold title="商品別販売数の商品" emoji="🍦">
         <p className="mb-3 text-xs leading-relaxed text-ink-soft">
-          日報の「商品別販売数」に出す商品を、ここで<b className="text-ink">足す・消す・名前を変える</b>ことができます。
+          日報の「商品別販売数」に出すカテゴリと商品を、ここで
+          <b className="text-ink">足す・消す・名前を変える</b>ことができます。
           <b className="text-ink">過去の日報の数字は消えません。</b>
-          消した商品は入力欄から見えなくなるだけで、あとから戻せます。
+          消したものは入力欄から見えなくなるだけで、あとから戻せます。
         </p>
         <ProductEditor settings={settings} update={update} />
       </Fold>
