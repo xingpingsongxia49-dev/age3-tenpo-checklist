@@ -54,6 +54,7 @@ export function emptySettings(): Settings {
     productExtra: [],
     productGroupNames: {},
     productGroupHidden: [],
+    productGroupExtra: [],
   };
 }
 
@@ -407,21 +408,25 @@ function extraOf(settings?: Settings): Map<string, { group: string; name: string
  */
 export function productGroupsOf(settings?: Settings): ProductRowGroup[] {
   const hidden = new Set(settings?.productHidden ?? []);
-  const hiddenGroups = new Set(settings?.productGroupHidden ?? []);
   const extras = settings?.productExtra ?? [];
-  return PRODUCT_GROUPS.filter((g) => !hiddenGroups.has(g.id)).map((g) => ({
-    id: g.id,
-    name: productGroupName(g.id, settings),
-    emoji: g.emoji,
-    items: [
-      ...g.items
-        .filter((it) => !hidden.has(it.id))
-        .map((it) => ({ id: it.id, name: productName(it.id, settings), custom: false })),
-      ...extras
-        .filter((e) => e.group === g.id && !hidden.has(e.id))
-        .map((e) => ({ id: e.id, name: productName(e.id, settings), custom: true })),
-    ],
-  })).filter((g) => g.items.length > 0);
+  return productGroupsAll(settings)
+    .map((g) => {
+      const base = PRODUCT_GROUPS.find((x) => x.id === g.id);
+      return {
+        id: g.id,
+        name: g.name,
+        emoji: g.emoji,
+        items: [
+          ...(base?.items ?? [])
+            .filter((it) => !hidden.has(it.id))
+            .map((it) => ({ id: it.id, name: productName(it.id, settings), custom: false })),
+          ...extras
+            .filter((e) => e.group === g.id && !hidden.has(e.id))
+            .map((e) => ({ id: e.id, name: productName(e.id, settings), custom: true })),
+        ],
+      };
+    })
+    .filter((g) => g.items.length > 0);
 }
 
 /**
@@ -441,10 +446,37 @@ export function productRowsOf(report: Report, settings?: Settings): ProductRowGr
   return retired.length ? [...groups, { ...RETIRED_GROUP, items: retired }] : groups;
 }
 
+/** 商品別販売数のカテゴリ1件ぶんの見出し情報 */
+export type ProductGroupMeta = {
+  id: string;
+  name: string;
+  emoji: string;
+  /** 設定画面から足したカテゴリか */
+  custom: boolean;
+};
+
+/**
+ * 今この店で使うカテゴリの一覧。
+ * 標準のカテゴリのうしろに、設定画面から足したカテゴリを並べる。消したものは含まない。
+ * 入力画面・日報カード・設定画面がどれもこれを見るので、並び順がそろう。
+ */
+export function productGroupsAll(settings?: Settings): ProductGroupMeta[] {
+  const hidden = new Set(settings?.productGroupHidden ?? []);
+  return [
+    ...PRODUCT_GROUPS.map((g) => ({ id: g.id, emoji: g.emoji, custom: false })),
+    ...(settings?.productGroupExtra ?? []).map((g) => ({ id: g.id, emoji: g.emoji, custom: true })),
+  ]
+    .filter((g) => !hidden.has(g.id))
+    .map((g) => ({ ...g, name: productGroupName(g.id, settings) }));
+}
+
 /** 設定の上書きを見たうえでの、商品別販売数のカテゴリ名 */
 export function productGroupName(groupId: string, settings?: Settings): string {
   const override = settings?.productGroupNames?.[groupId]?.trim();
-  return override || PRODUCT_GROUPS.find((g) => g.id === groupId)?.name || groupId;
+  if (override) return override;
+  const extra = settings?.productGroupExtra?.find((g) => g.id === groupId);
+  if (extra) return extra.name;
+  return PRODUCT_GROUPS.find((g) => g.id === groupId)?.name || groupId;
 }
 
 /** 設定の上書きを見たうえでの、商品別販売数の商品名 */
@@ -460,6 +492,14 @@ export function productName(id: string, settings?: Settings): string {
 export function newProductId(): string {
   return `cx_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
+
+/** 他とぶつからないカテゴリIDを作る。設定画面からカテゴリを足すときに使う */
+export function newGroupId(): string {
+  return `gx_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** 足したカテゴリに付けられる絵文字。店で扱うものに寄せてある */
+export const GROUP_EMOJI = ["🥤", "☕️", "🧋", "🍺", "🍰", "🍪", "🥐", "🍱", "🎁", "🆕"];
 
 /** 一番売れた商品。同数なら先に並んでいるほうを採る */
 export function topProduct(
