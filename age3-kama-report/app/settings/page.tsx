@@ -10,6 +10,10 @@ import {
   newProductId,
   prettyDate,
   productGroupName,
+  productGroupsAll,
+  productName,
+  newGroupId,
+  GROUP_EMOJI,
   sweetTarget,
   todayISO,
 } from "@/lib/calc";
@@ -66,9 +70,13 @@ function ProductEditor({
   update: (s: Settings) => void;
 }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [groupDraft, setGroupDraft] = useState("");
+  const [groupEmoji, setGroupEmoji] = useState(GROUP_EMOJI[0]);
   const hidden = settings.productHidden ?? [];
   const extras = settings.productExtra ?? [];
   const hiddenGroups = settings.productGroupHidden ?? [];
+  const extraGroups = settings.productGroupExtra ?? [];
+  const groups = productGroupsAll(settings);
 
   const rename = (id: string, name: string) =>
     update({ ...settings, productNames: { ...settings.productNames, [id]: name } });
@@ -83,6 +91,37 @@ function ProductEditor({
   const unhideGroup = (id: string) =>
     update({ ...settings, productGroupHidden: hiddenGroups.filter((x) => x !== id) });
 
+  const addGroup = () => {
+    const name = groupDraft.trim();
+    if (!name) return;
+    update({
+      ...settings,
+      productGroupExtra: [...extraGroups, { id: newGroupId(), name, emoji: groupEmoji }],
+    });
+    setGroupDraft("");
+  };
+
+  /**
+   * 足したカテゴリを消す。元から無いので、中に足した商品ごと完全に取り除く。
+   * その日報に数字が残っていれば「一覧にない商品」に出るので、合計とは食い違わない。
+   */
+  const removeGroup = (id: string) => {
+    const names = { ...settings.productNames };
+    const groupNames = { ...settings.productGroupNames };
+    const inside = extras.filter((e) => e.group === id).map((e) => e.id);
+    // 中の商品の名前は残す。過去の日報の数字が内部IDのまま出るのを防ぐ
+    for (const x of inside) names[x] = productName(x, settings);
+    delete groupNames[id];
+    update({
+      ...settings,
+      productNames: names,
+      productGroupNames: groupNames,
+      productExtra: extras.filter((e) => e.group !== id),
+      productHidden: hidden.filter((x) => !inside.includes(x)),
+      productGroupExtra: extraGroups.filter((g) => g.id !== id),
+    });
+  };
+
   /** 元からある商品を一覧から隠す */
   const hide = (id: string) =>
     update({ ...settings, productHidden: [...hidden.filter((x) => x !== id), id] });
@@ -90,13 +129,15 @@ function ProductEditor({
   const unhide = (id: string) =>
     update({ ...settings, productHidden: hidden.filter((x) => x !== id) });
 
-  /** 足した商品を消す。こちらは元から無いので完全に取り除く */
+  /**
+   * 足した商品を消す。こちらは元から無いので一覧からは完全に取り除く。
+   * ただし名前だけは残す。過去の日報にこの商品の数字が入っていたとき、
+   * 名前を捨ててしまうと「一覧にない商品」に内部IDのまま出てしまうため。
+   */
   const removeExtra = (id: string) => {
-    const names = { ...settings.productNames };
-    delete names[id];
     update({
       ...settings,
-      productNames: names,
+      productNames: { ...settings.productNames, [id]: productName(id, settings) },
       productExtra: extras.filter((e) => e.id !== id),
       productHidden: hidden.filter((x) => x !== id),
     });
@@ -121,17 +162,19 @@ function ProductEditor({
 
   return (
     <>
-      {PRODUCT_GROUPS.filter((g) => !hiddenGroups.includes(g.id)).map((g) => {
-        const live = g.items.filter((it) => !hidden.includes(it.id));
+      {groups.map((g) => {
+        const base = PRODUCT_GROUPS.find((x) => x.id === g.id);
+        const live = (base?.items ?? []).filter((it) => !hidden.includes(it.id));
         const mine = extras.filter((e) => e.group === g.id && !hidden.includes(e.id));
         return (
           <div key={g.id} className="mb-5">
             <GroupHeadEditor
               emoji={g.emoji}
-              value={settings.productGroupNames?.[g.id] ?? ""}
-              originalName={g.name}
+              value={settings.productGroupNames?.[g.id] ?? (g.custom ? g.name : "")}
+              originalName={base?.name ?? g.name}
+              added={g.custom}
               onChange={(v) => renameGroup(g.id, v)}
-              onDelete={() => hideGroup(g.id)}
+              onDelete={() => (g.custom ? removeGroup(g.id) : hideGroup(g.id))}
             />
 
             {live.map((it) => (
@@ -160,8 +203,8 @@ function ProductEditor({
             <div className="mt-2 flex items-center gap-2">
               <input
                 value={draft[g.id] ?? ""}
-                placeholder={`${productGroupName(g.id, settings)}に商品を足す`}
-                aria-label={`${g.name}に足す商品名`}
+                placeholder={`${g.name}に商品を足す`}
+                aria-label={`${base?.name ?? g.name}に足す商品名`}
                 onChange={(e) => setDraft((d) => ({ ...d, [g.id]: e.target.value }))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -183,6 +226,49 @@ function ProductEditor({
           </div>
         );
       })}
+
+      <div className="mb-5 rounded-xl border border-dashed border-line p-3">
+        <p className="mb-2 text-xs font-bold text-ink-soft">カテゴリを足す</p>
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {GROUP_EMOJI.map((e) => (
+            <button
+              key={e}
+              type="button"
+              onClick={() => setGroupEmoji(e)}
+              aria-label={`カテゴリの絵文字を${e}にする`}
+              aria-pressed={groupEmoji === e}
+              className={`tap grid h-10 w-10 place-items-center rounded-lg border text-lg ${
+                groupEmoji === e ? "border-brand bg-gold-soft" : "border-line bg-cream"
+              }`}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={groupDraft}
+            placeholder="ドリンク など"
+            aria-label="足すカテゴリ名"
+            onChange={(e) => setGroupDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addGroup();
+              }
+            }}
+            className="field flex-1"
+          />
+          <button
+            type="button"
+            onClick={addGroup}
+            disabled={!groupDraft.trim()}
+            className="tap shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white disabled:opacity-30"
+          >
+            ＋ 追加
+          </button>
+        </div>
+      </div>
 
       {hiddenGroups.length ? (
         <div className="mb-4 rounded-xl border border-line bg-cream-deep p-3">
@@ -246,6 +332,7 @@ function ProductEditor({
             productExtra: [],
             productGroupNames: {},
             productGroupHidden: [],
+            productGroupExtra: [],
           })
         }
         className="btn btn-ghost w-full"
@@ -264,12 +351,15 @@ function GroupHeadEditor({
   emoji,
   value,
   originalName,
+  added = false,
   onChange,
   onDelete,
 }: {
   emoji: string;
   value: string;
   originalName: string;
+  /** 設定画面から足したカテゴリか。消すと完全に無くなる */
+  added?: boolean;
   onChange: (v: string) => void;
   onDelete: () => void;
 }) {
@@ -301,7 +391,9 @@ function GroupHeadEditor({
       {confirming ? (
         <div className="mt-2 flex items-center gap-2">
           <span className="flex-1 text-xs font-bold leading-tight text-low">
-            中の商品もまとめて一覧から消えます（過去の数字は残ります）
+            {added
+              ? "足したカテゴリなので、中の商品ごと完全に消えます（過去の数字は残ります）"
+              : "中の商品もまとめて一覧から消えます（過去の数字は残ります）"}
           </span>
           <button
             type="button"

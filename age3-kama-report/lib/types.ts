@@ -142,6 +142,17 @@ export type Settings = {
    * 設定画面から戻せる。
    */
   productGroupHidden: string[];
+  /** 設定画面から足したカテゴリ。標準のカテゴリのうしろに並ぶ */
+  productGroupExtra: ExtraGroup[];
+};
+
+/** 設定画面から足した商品別販売数のカテゴリ */
+export type ExtraGroup = {
+  /** 他とぶつからないよう gx_ ではじまるIDを振る */
+  id: string;
+  name: string;
+  /** 見出しに出す絵文字 */
+  emoji: string;
 };
 
 /** 設定画面から足した商品別販売数の1品目 */
