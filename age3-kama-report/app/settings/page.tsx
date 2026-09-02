@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 
 import { Fold } from "@/components/Fold";
 import { Section } from "@/components/ui";
-import { canTarget, emptySettings, prettyDate, productName, sweetTarget, todayISO } from "@/lib/calc";
+import {
+  canTarget,
+  emptySettings,
+  newProductId,
+  prettyDate,
+  sweetTarget,
+  todayISO,
+} from "@/lib/calc";
 import { CAN_GROUPS, PRODUCT_GROUPS, SWEET_ITEMS, SWEET_VARIANTS, sweetKey } from "@/lib/masters";
 import {
   adminPins,
@@ -40,6 +47,220 @@ function TargetRow({
         aria-label={`${name}の目標数`}
       />
     </label>
+  );
+}
+
+/**
+ * 商品別販売数の商品を編集する。
+ *
+ * 元からある商品は「消す」と一覧から隠すだけにして、過去の日報に入っている
+ * 数字には触らない。設定画面から戻せる。
+ * 足した商品は cx_ ではじまるIDを振り、既存のグループにぶら下げる。
+ */
+function ProductEditor({
+  settings,
+  update,
+}: {
+  settings: Settings;
+  update: (s: Settings) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const hidden = settings.productHidden ?? [];
+  const extras = settings.productExtra ?? [];
+
+  const rename = (id: string, name: string) =>
+    update({ ...settings, productNames: { ...settings.productNames, [id]: name } });
+
+  /** 元からある商品を一覧から隠す */
+  const hide = (id: string) =>
+    update({ ...settings, productHidden: [...hidden.filter((x) => x !== id), id] });
+
+  const unhide = (id: string) =>
+    update({ ...settings, productHidden: hidden.filter((x) => x !== id) });
+
+  /** 足した商品を消す。こちらは元から無いので完全に取り除く */
+  const removeExtra = (id: string) => {
+    const names = { ...settings.productNames };
+    delete names[id];
+    update({
+      ...settings,
+      productNames: names,
+      productExtra: extras.filter((e) => e.id !== id),
+      productHidden: hidden.filter((x) => x !== id),
+    });
+  };
+
+  const add = (groupId: string) => {
+    const name = (draft[groupId] ?? "").trim();
+    if (!name) return;
+    update({
+      ...settings,
+      productExtra: [...extras, { id: newProductId(), group: groupId, name }],
+    });
+    setDraft((d) => ({ ...d, [groupId]: "" }));
+  };
+
+  const hiddenMaster = PRODUCT_GROUPS.flatMap((g) =>
+    g.items.filter((it) => hidden.includes(it.id)).map((it) => ({ ...it, group: g.name })),
+  );
+
+  return (
+    <>
+      {PRODUCT_GROUPS.map((g) => {
+        const live = g.items.filter((it) => !hidden.includes(it.id));
+        const mine = extras.filter((e) => e.group === g.id && !hidden.includes(e.id));
+        return (
+          <div key={g.id} className="mb-5">
+            <h3 className="mb-1 rounded-lg bg-cream-deep px-3 py-1.5 text-sm font-bold">
+              {g.emoji} {g.name}
+            </h3>
+
+            {live.map((it) => (
+              <ProductRowEditor
+                key={it.id}
+                value={settings.productNames?.[it.id] ?? ""}
+                placeholder={it.name}
+                originalName={it.name}
+                onChange={(v) => rename(it.id, v)}
+                onDelete={() => hide(it.id)}
+              />
+            ))}
+
+            {mine.map((e) => (
+              <ProductRowEditor
+                key={e.id}
+                value={settings.productNames?.[e.id] ?? e.name}
+                placeholder={e.name}
+                originalName="追加した商品"
+                added
+                onChange={(v) => rename(e.id, v)}
+                onDelete={() => removeExtra(e.id)}
+              />
+            ))}
+
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                value={draft[g.id] ?? ""}
+                placeholder={`${g.name}に商品を足す`}
+                aria-label={`${g.name}に足す商品名`}
+                onChange={(e) => setDraft((d) => ({ ...d, [g.id]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    add(g.id);
+                  }
+                }}
+                className="field flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => add(g.id)}
+                disabled={!(draft[g.id] ?? "").trim()}
+                className="tap shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white disabled:opacity-30"
+              >
+                ＋ 追加
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      {hiddenMaster.length ? (
+        <div className="mb-4 rounded-xl border border-line bg-cream-deep p-3">
+          <p className="mb-2 text-xs font-bold text-ink-soft">
+            一覧から消した商品（{hiddenMaster.length}件）
+          </p>
+          {hiddenMaster.map((it) => (
+            <div
+              key={it.id}
+              className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
+            >
+              <span className="flex-1 text-sm leading-tight">
+                {it.name}
+                <span className="ml-1 text-xs text-ink-soft">（{it.group}）</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => unhide(it.id)}
+                className="tap shrink-0 rounded-lg border border-line bg-cream px-3 py-1.5 text-xs font-bold active:bg-line"
+              >
+                戻す
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() =>
+          update({ ...settings, productNames: {}, productHidden: [], productExtra: [] })
+        }
+        className="btn btn-ghost w-full"
+      >
+        商品の設定をすべて最初の状態に戻す
+      </button>
+    </>
+  );
+}
+
+/** 商品1件ぶんの行。名前の書き換えと、消すボタン */
+function ProductRowEditor({
+  value,
+  placeholder,
+  originalName,
+  added = false,
+  onChange,
+  onDelete,
+}: {
+  value: string;
+  placeholder: string;
+  originalName: string;
+  added?: boolean;
+  onChange: (v: string) => void;
+  onDelete: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div className="flex items-center gap-2 border-t border-line py-2 first:border-t-0">
+      <span className="w-24 shrink-0 text-xs leading-tight text-ink-soft">
+        {added ? <span className="badge badge-info">追加</span> : originalName}
+      </span>
+      <input
+        value={value}
+        placeholder={placeholder}
+        aria-label={`${placeholder}の表示名`}
+        onChange={(e) => onChange(e.target.value)}
+        className="field flex-1"
+      />
+      {confirming ? (
+        <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            onClick={onDelete}
+            className="tap rounded-lg bg-low px-3 py-1.5 text-xs font-bold text-white"
+          >
+            消す
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="tap rounded-lg border border-line px-2 py-1.5 text-xs font-bold text-ink-soft"
+          >
+            やめる
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          aria-label={`${placeholder}を一覧から消す`}
+          className="tap shrink-0 rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink-soft active:bg-line"
+        >
+          消す
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -264,48 +485,13 @@ export default function SettingsPage() {
         ))}
       </Fold>
 
-      <Fold title="商品別販売数の商品名" emoji="🍦">
+      <Fold title="商品別販売数の商品" emoji="🍦">
         <p className="mb-3 text-xs leading-relaxed text-ink-soft">
-          季節で入れ替わる商品はここで名前を書き換えてください。
-          空欄にすると元の名前に戻ります。過去の日報の数字はそのまま残ります。
+          日報の「商品別販売数」に出す商品を、ここで<b className="text-ink">足す・消す・名前を変える</b>ことができます。
+          <b className="text-ink">過去の日報の数字は消えません。</b>
+          消した商品は入力欄から見えなくなるだけで、あとから戻せます。
         </p>
-        {PRODUCT_GROUPS.map((g) => (
-          <div key={g.id} className="mb-4">
-            <h3 className="mb-1 rounded-lg bg-cream-deep px-3 py-1.5 text-sm font-bold">
-              {g.emoji} {g.name}
-            </h3>
-            {g.items.map((it) => {
-              const custom = settings.productNames?.[it.id] ?? "";
-              return (
-                <label
-                  key={it.id}
-                  className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
-                >
-                  <span className="w-28 shrink-0 text-xs text-ink-soft">{it.name}</span>
-                  <input
-                    value={custom}
-                    placeholder={it.name}
-                    aria-label={`${it.name}の表示名`}
-                    onChange={(e) =>
-                      update({
-                        ...settings,
-                        productNames: { ...settings.productNames, [it.id]: e.target.value },
-                      })
-                    }
-                    className="field flex-1"
-                  />
-                </label>
-              );
-            })}
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={() => update({ ...settings, productNames: {} })}
-          className="btn btn-ghost w-full"
-        >
-          すべて元の商品名に戻す
-        </button>
+        <ProductEditor settings={settings} update={update} />
       </Fold>
 
       <Section title="保存先" emoji="💾">

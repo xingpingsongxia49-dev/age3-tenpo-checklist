@@ -45,7 +45,14 @@ export function prettyDate(iso: string): string {
 }
 
 export function emptySettings(): Settings {
-  return { staff: [...DEFAULT_STAFF], canTargets: {}, sweetTargets: {}, productNames: {} };
+  return {
+    staff: [...DEFAULT_STAFF],
+    canTargets: {},
+    sweetTargets: {},
+    productNames: {},
+    productHidden: [],
+    productExtra: [],
+  };
 }
 
 /** 何も入っていない日報。日付だけ決まっている状態 */
@@ -366,10 +373,83 @@ export function productTotal(report: Report): number {
   return Object.values(report.products).reduce((s, n) => s + (n || 0), 0);
 }
 
+/** 設定を反映したあとの商品1件 */
+export type ProductRow = {
+  id: string;
+  name: string;
+  /** 設定画面から足した商品か。消し方が違うので区別する */
+  custom: boolean;
+};
+
+/** 設定を反映したあとの商品グループ */
+export type ProductRowGroup = {
+  id: string;
+  name: string;
+  emoji: string;
+  items: ProductRow[];
+};
+
+/** 一覧から外した商品のうち、その日の日報に数字が残っているものを入れる箱 */
+const RETIRED_GROUP = { id: "__retired", name: "一覧にない商品", emoji: "📦" };
+
+/** 設定画面から足した商品を id で引く */
+function extraOf(settings?: Settings): Map<string, { group: string; name: string }> {
+  const m = new Map<string, { group: string; name: string }>();
+  for (const e of settings?.productExtra ?? []) m.set(e.id, { group: e.group, name: e.name });
+  return m;
+}
+
+/**
+ * 設定（名前の書き換え・消した商品・足した商品）を反映した商品別販売数の一覧。
+ * 入力画面も日報カードもこれを見るので、設定を変えれば全部そろって変わる。
+ */
+export function productGroupsOf(settings?: Settings): ProductRowGroup[] {
+  const hidden = new Set(settings?.productHidden ?? []);
+  const extras = settings?.productExtra ?? [];
+  return PRODUCT_GROUPS.map((g) => ({
+    id: g.id,
+    name: g.name,
+    emoji: g.emoji,
+    items: [
+      ...g.items
+        .filter((it) => !hidden.has(it.id))
+        .map((it) => ({ id: it.id, name: productName(it.id, settings), custom: false })),
+      ...extras
+        .filter((e) => e.group === g.id && !hidden.has(e.id))
+        .map((e) => ({ id: e.id, name: productName(e.id, settings), custom: true })),
+    ],
+  })).filter((g) => g.items.length > 0);
+}
+
+/**
+ * その日報を表示するための一覧。
+ *
+ * productGroupsOf に加えて、一覧から外したあとも数字が残っている商品を
+ * 最後にまとめて出す。合計だけ合って明細に出てこない、という食い違いを防ぐ。
+ * 入力画面ではここから0に直せる。
+ */
+export function productRowsOf(report: Report, settings?: Settings): ProductRowGroup[] {
+  const groups = productGroupsOf(settings);
+  const shown = new Set(groups.flatMap((g) => g.items.map((i) => i.id)));
+  const extras = extraOf(settings);
+  const retired: ProductRow[] = Object.entries(report.products)
+    .filter(([id, n]) => (n || 0) > 0 && !shown.has(id))
+    .map(([id]) => ({ id, name: productName(id, settings), custom: extras.has(id) }));
+  return retired.length ? [...groups, { ...RETIRED_GROUP, items: retired }] : groups;
+}
+
 /** 設定の上書きを見たうえでの、商品別販売数の商品名 */
 export function productName(id: string, settings?: Settings): string {
   const override = settings?.productNames?.[id]?.trim();
-  return override || PRODUCT_INDEX[id]?.name || id;
+  if (override) return override;
+  const extra = settings?.productExtra?.find((e) => e.id === id);
+  if (extra) return extra.name;
+  return PRODUCT_INDEX[id]?.name || id;
+}
+
+/** 他とぶつからない商品IDを作る。設定画面から商品を足すときに使う */
+export function newProductId(): string {
+  return `cx_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 /** 一番売れた商品。同数なら先に並んでいるほうを採る */
@@ -377,22 +457,16 @@ export function topProduct(
   report: Report,
   settings?: Settings,
 ): { id: string; name: string; group: string; emoji: string; count: number } | null {
-  let best: { id: string; count: number } | null = null;
-  for (const g of PRODUCT_GROUPS) {
+  let best: { id: string; name: string; group: string; emoji: string; count: number } | null = null;
+  for (const g of productRowsOf(report, settings)) {
     for (const it of g.items) {
       const n = report.products[it.id] ?? 0;
-      if (n > 0 && (!best || n > best.count)) best = { id: it.id, count: n };
+      if (n > 0 && (!best || n > best.count)) {
+        best = { id: it.id, name: it.name, group: g.name, emoji: g.emoji, count: n };
+      }
     }
   }
-  if (!best) return null;
-  const meta = PRODUCT_INDEX[best.id];
-  return {
-    id: best.id,
-    count: best.count,
-    name: productName(best.id, settings),
-    group: meta.group,
-    emoji: meta.emoji,
-  };
+  return best;
 }
 
 /** 口コミ返信の合計 */
