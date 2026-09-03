@@ -1,17 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+
+/** 管理PINで守っている画面。解錠したあと、どこへ戻すか */
+const DESTINATIONS: Record<string, { title: string; lead: string; button: string }> = {
+  "/settings": {
+    title: "設定画面",
+    lead: "スタッフ名・在庫の目標数・商品名を変えられる画面です。",
+    button: "設定を開く",
+  },
+  "/dashboard": {
+    title: "分析",
+    lead: "売上と、社員がいた日・いなかった日の比較を見る画面です。",
+    button: "分析を開く",
+  },
+};
 
 /**
- * 設定画面の入口。
- * ここはスタッフ名と在庫の目標数を書き換えられる場所なので、
+ * 管理PINの入口。
+ * 設定と分析は、現場ではなく管理側だけが見るところなので、
  * 入店PINとは別の管理PINをもう一度たずねる。
  */
 export default function SettingsUnlockPage() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-12 text-center text-sm text-ink-soft">読み込み中…</main>}>
+      <Unlock />
+    </Suspense>
+  );
+}
+
+function Unlock() {
+  const params = useSearchParams();
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // 転送先は自分のサイトの中だけに限る。"//" ではじまる外部URLを入れられないようにする
+  const raw = params.get("next") ?? "/settings";
+  const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/settings";
+  const dest = DESTINATIONS[next] ?? DESTINATIONS["/settings"];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,9 +53,9 @@ export default function SettingsUnlockPage() {
     });
     setBusy(false);
     if (res.ok) {
-      // 一度はじかれた直後だと、クライアント側に「設定→解錠画面」への転送が
+      // 一度はじかれた直後だと、クライアント側に「→解錠画面」への転送が
       // 残っていて戻されることがある。ページごと読み直して middleware を通し直す。
-      window.location.href = "/settings";
+      window.location.href = next;
     } else {
       setError(true);
       setPasscode("");
@@ -39,9 +68,9 @@ export default function SettingsUnlockPage() {
         <p className="text-4xl" aria-hidden>
           🔒
         </p>
-        <h1 className="mt-2 text-xl font-bold">設定画面</h1>
+        <h1 className="mt-2 text-xl font-bold">{dest.title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          スタッフ名・在庫の目標数・商品名を変えられる画面です。
+          {dest.lead}
           <br />
           管理PINを入れてください。
         </p>
@@ -70,7 +99,7 @@ export default function SettingsUnlockPage() {
           disabled={busy || !passcode}
           className="btn btn-primary mt-5 w-full disabled:opacity-40"
         >
-          {busy ? "確認中…" : "設定を開く"}
+          {busy ? "確認中…" : dest.button}
         </button>
       </form>
 

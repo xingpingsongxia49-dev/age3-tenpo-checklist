@@ -88,13 +88,32 @@ function BigCard({
 }
 
 /** 小さくていい入口 */
-function SmallCard({ href, emoji, title }: { href: string; emoji: string; title: string }) {
+function SmallCard({
+  href,
+  emoji,
+  title,
+  locked = false,
+}: {
+  href: string;
+  emoji: string;
+  title: string;
+  /** 管理PINが要る画面。押す前に分かるよう鍵を出す */
+  locked?: boolean;
+}) {
   return (
-    <Link href={href} className="card tap flex flex-col items-center gap-1 px-2 py-3.5">
+    <Link href={href} className="card tap relative flex flex-col items-center gap-1 px-2 py-3.5">
+      {locked ? (
+        <span className="absolute right-1.5 top-1.5 text-[10px]" title="管理PINが要ります">
+          🔒
+        </span>
+      ) : null}
       <span aria-hidden className="text-2xl leading-none">
         {emoji}
       </span>
-      <span className="text-xs font-bold">{title}</span>
+      <span className="text-xs font-bold">
+        {title}
+        {locked ? <span className="sr-only">（管理PINが要ります）</span> : null}
+      </span>
     </Link>
   );
 }
@@ -180,8 +199,8 @@ export default function TopPage() {
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <SmallCard href="/history" emoji="📚" title="履歴" />
-        <SmallCard href="/dashboard" emoji="📊" title="分析" />
-        <SmallCard href="/settings" emoji="⚙️" title="設定" />
+        <SmallCard href="/dashboard" emoji="📊" title="分析" locked />
+        <SmallCard href="/settings" emoji="⚙️" title="設定" locked />
       </div>
 
       <p className="mt-4 text-center text-xs leading-relaxed text-ink-soft">
