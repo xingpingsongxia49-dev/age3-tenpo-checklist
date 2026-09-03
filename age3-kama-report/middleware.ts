@@ -43,6 +43,8 @@ export async function middleware(req: NextRequest) {
   // 2段目：管理PIN。設定画面と、設定の書き込みだけに要る
   const needsAdmin =
     (pathname === "/settings" || (pathname.startsWith("/settings/") && pathname !== UNLOCK_PATH)) ||
+    // 分析は売上と人員の話なので、現場ではなく管理側だけが見る
+    pathname === "/dashboard" ||
     (pathname === "/api/settings" && req.method !== "GET") ||
     // 日報を消すのは取り返しがつかないので、設定と同じ管理PINを要求する
     (pathname.startsWith("/api/reports") && req.method === "DELETE") ||
@@ -55,6 +57,8 @@ export async function middleware(req: NextRequest) {
       if (isApi) return NextResponse.json({ error: "admin required" }, { status: 401 });
       const url = req.nextUrl.clone();
       url.pathname = UNLOCK_PATH;
+      // 解錠したあと、開こうとしていた画面に戻れるようにする
+      url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
   }
