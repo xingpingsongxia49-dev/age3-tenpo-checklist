@@ -42,6 +42,8 @@ export function ItemRow({
     <li className="border-b border-[var(--color-line)] py-3 last:border-b-0">
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <WeightBadge w={item.weight} />
+        {/* 並びが重要度順になったので、どのカテゴリの項目かを行に添える */}
+        <span className="text-[11px] text-[var(--color-sub)]">{item.category}</span>
         {prevAnswer?.judgement && answer.judgement && (
           <ChangeBadge change={change} fixed={fixed} />
         )}

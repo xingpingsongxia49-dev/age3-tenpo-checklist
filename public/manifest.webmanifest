@@ -1,6 +1,6 @@
 {
   "name": "Age.3 店舗チェック",
-  "short_name": "Age.3 チェック",
+  "short_name": "アゲサン",
   "description": "銀座・原宿・浅草の店舗チェックリスト（加重スコア・是正管理）",
   "start_url": "/",
   "scope": "/",
@@ -23,7 +23,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

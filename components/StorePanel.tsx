@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { ItemRow } from "./ItemRow";
 import { Bar, Card, JUDGEMENT_COLOR, JUDGEMENT_ICON, Notice, WarningBand } from "./ui";
-import { CATEGORIES } from "@/lib/checklist";
 import { useEnsureTodayInspection } from "@/lib/hooks";
 import {
   answerOf,
@@ -24,9 +23,32 @@ import { usePrint } from "@/lib/usePrint";
 import { PrintPortal } from "./PrintPortal";
 import { PreviewBar } from "./PreviewBar";
 import { todayISO, useStore } from "@/lib/store";
-import { EMPTY_ANSWER, type StoreName } from "@/lib/types";
+import { EMPTY_ANSWER, type StoreName, type Weight } from "@/lib/types";
 
 type Filter = "all" | "todo" | "issue" | "prevNg" | "streak" | "s" | "sa";
+
+/**
+ * 上から順に「危ないもの」が並ぶようにする。
+ * カテゴリ順（⓪〜⑪）だと、衛生の×より先に看板の文言を見ることになってしまう。
+ * カテゴリはそれぞれの項目に添えて表示する。
+ */
+const WEIGHT_GROUPS: { weight: Weight; title: string; lead: string }[] = [
+  {
+    weight: "S",
+    title: "S｜まずここ（止まるリスク）",
+    lead: "食品衛生・食品安全・行政/近隣リスク。1件でも×なら総合何%でも赤。時間が無い日はここだけでも埋める。",
+  },
+  {
+    weight: "A",
+    title: "A｜売上・品質・オペレーション",
+    lead: "利益と再現性に直結する項目。Sを埋めてから上から順に。",
+  },
+  {
+    weight: "B",
+    title: "B｜改善推奨",
+    lead: "余裕がある日に見る。落としても行政リスクにも売上にも直結しない。",
+  },
+];
 
 export function StorePanel({ store }: { store: StoreName }) {
   const { data, ready, updateInspection, updateAnswer, resetInspection } = useStore();
@@ -278,25 +300,31 @@ export function StorePanel({ store }: { store: StoreName }) {
         </p>
       )}
 
-      {/* カテゴリ見出しごとの項目リスト */}
+      {/* 重要度の高いものから上に並べる。
+          3店を1日で回るので、上から順に埋めれば危ないところから片付く */}
       <div className="mt-4">
-        {CATEGORIES.map((cat) => {
-          const catAll = items.filter((i) => i.category === cat);
-          if (catAll.length === 0) return null;
-          const catVisible = visible.filter((i) => i.category === cat);
-          if (catVisible.length === 0) return null;
+        {WEIGHT_GROUPS.map(({ weight, title, lead }) => {
+          const groupAll = items.filter((i) => i.weight === weight);
+          if (groupAll.length === 0) return null;
+          const groupVisible = visible.filter((i) => i.weight === weight);
+          if (groupVisible.length === 0) return null;
 
-          const cs = s.categories.find((c) => c.category === cat);
-          const done = catAll.filter((i) => answerOf(inspection, i.id).judgement !== null).length;
+          const answers = groupAll.map((i) => answerOf(inspection, i.id).judgement);
+          const done = answers.filter((j) => j !== null).length;
+          const batsu = answers.filter((j) => j === "×").length;
+          const sankaku = answers.filter((j) => j === "△").length;
+          const maru = answers.filter((j) => j === "○").length;
+          const counted = maru + sankaku + batsu;
+          const rate = counted > 0 ? (maru + sankaku * 0.5) / counted : null;
 
           return (
-            <section key={cat} className="mt-4 first:mt-0">
+            <section key={weight} className="mt-4 first:mt-0">
               <div className="flex items-baseline gap-2 border-b-2 border-[var(--color-brown)] pb-1.5">
-                <h3 className="min-w-0 flex-1 text-[15px] font-bold leading-snug">{cat}</h3>
+                <h3 className="min-w-0 flex-1 text-[15px] font-bold leading-snug">{title}</h3>
                 <span className="tabular shrink-0 text-[12px] text-[var(--color-sub)]">
-                  {done}/{catAll.length}
+                  {done}/{groupAll.length}
                 </span>
-                {cs && cs.batsu > 0 && (
+                {batsu > 0 && (
                   <span
                     className="shrink-0 rounded-full px-1.5 text-[11px] font-bold"
                     style={{
@@ -304,10 +332,10 @@ export function StorePanel({ store }: { store: StoreName }) {
                       color: JUDGEMENT_COLOR["×"].ink,
                     }}
                   >
-                    {JUDGEMENT_ICON["×"]} {cs.batsu}
+                    {JUDGEMENT_ICON["×"]} {batsu}
                   </span>
                 )}
-                {cs && cs.sankaku > 0 && (
+                {sankaku > 0 && (
                   <span
                     className="shrink-0 rounded-full px-1.5 text-[11px] font-bold"
                     style={{
@@ -315,15 +343,16 @@ export function StorePanel({ store }: { store: StoreName }) {
                       color: JUDGEMENT_COLOR["△"].ink,
                     }}
                   >
-                    {JUDGEMENT_ICON["△"]} {cs.sankaku}
+                    {JUDGEMENT_ICON["△"]} {sankaku}
                   </span>
                 )}
                 <span className="tabular w-10 shrink-0 text-right text-[13px] font-bold">
-                  {pct(cs?.rate ?? null)}
+                  {pct(rate)}
                 </span>
               </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-sub)]">{lead}</p>
               <ul>
-                {catVisible.map((item) => (
+                {groupVisible.map((item) => (
                   <ItemRow
                     key={item.id}
                     item={item}
