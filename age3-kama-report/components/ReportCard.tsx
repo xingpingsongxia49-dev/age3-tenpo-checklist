@@ -41,8 +41,9 @@ export function ReportCard({ report, settings }: { report: Report; settings: Set
   const top = topProduct(report, settings);
   const noStaff = !report.shift.staffPresent;
   const canMade = canMadeTotal(report);
+  // 絵文字を頭に置くと、名前を1つずつ読まなくても何を作ったのかが分かる
   const madeList = CAN_ITEMS.filter((i) => report.cans[i.id]?.made).map(
-    (i) => `${i.name} ${report.cans[i.id]?.made}`,
+    (i) => `${i.emoji}${i.name} ${report.cans[i.id]?.made}`,
   );
   const tasks = [...report.idleTasks, report.idleNote].filter(Boolean).join("・");
 

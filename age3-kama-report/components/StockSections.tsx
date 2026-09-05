@@ -90,7 +90,7 @@ export function CanStockSection({
             return (
               <div key={it.id} className="border-t border-line py-3 first:border-t-0 first:pt-0">
                 <FillHead
-                  name={it.name}
+                  name={`${it.emoji} ${it.name}`}
                   targetLabel={it.targetLabel}
                   target={canTarget(it.id, settings)}
                   stock={e.stock}
@@ -340,7 +340,12 @@ export function CanMadeSection({
                 key={it.id}
                 className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
               >
-                <span className="flex-1 text-sm font-medium leading-tight">{it.name}</span>
+                <span className="flex-1 text-sm font-medium leading-tight">
+                  <span aria-hidden className="mr-1">
+                    {it.emoji}
+                  </span>
+                  {it.name}
+                </span>
                 <Stepper
                   value={made}
                   onChange={(v) => set(it.id, v)}
