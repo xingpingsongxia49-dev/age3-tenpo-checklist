@@ -11,6 +11,13 @@
 export type CanItem = {
   id: string;
   name: string;
+  /**
+   * 品目ごとの絵文字。
+   * 「いちご」はパンケーキ缶にもアサイー缶にもあるので、名前だけだとLINEで
+   * 流し読みしたときに見分けが付かない。絵文字を頭に置くと、何を作ったのかが
+   * 名前を読まなくても分かる。同じグループの中では重ならないように選んである。
+   */
+  emoji: string;
   /** 絶対在庫数。充足率の分母になる。0 なら充足率を出さない */
   target: number;
   /**
@@ -42,20 +49,20 @@ export const CAN_GROUPS: CanGroup[] = [
     emoji: "🥞",
     color: "#bdd7ee",
     items: [
-      { id: "pc_ichigo", name: "いちご", ...pcs(400) },
-      { id: "pc_chocobanana", name: "チョコバナナ", ...pcs(135) },
-      { id: "pc_pine", name: "パイン", ...pcs(90) },
-      { id: "pc_kiwi", name: "キウイ", ...pcs(90) },
-      { id: "pc_matcha_ichigo", name: "抹茶いちご", ...pcs(30) },
-      { id: "pc_houji_warabi", name: "ほうじ茶わらび餅", ...pcs(30) },
-      { id: "pc_nama_kuri_an", name: "生栗あん", ...pcs(30) },
-      { id: "pc_beniimo_annou", name: "紅芋＆安納芋", ...pcs(30) },
-      { id: "pc_chococream_ichigo", name: "チョコクリームいちご", ...pcs(45) },
-      { id: "pc_chococream_banana", name: "チョコクリームバナナ", ...pcs(45) },
-      { id: "pc_custard_pudding", name: "生カスタードプリン", ...pcs(45) },
-      { id: "pc_chocomint", name: "チョコミント", ...pcs(30) },
-      { id: "pc_ichigocream_ichigo", name: "いちごクリームいちご", ...pcs(45) },
-      { id: "pc_ichigo_daifuku", name: "いちご大福", ...pcs(45) },
+      { id: "pc_ichigo", name: "いちご", emoji: "🍓", ...pcs(400) },
+      { id: "pc_chocobanana", name: "チョコバナナ", emoji: "🍌", ...pcs(135) },
+      { id: "pc_pine", name: "パイン", emoji: "🍍", ...pcs(90) },
+      { id: "pc_kiwi", name: "キウイ", emoji: "🥝", ...pcs(90) },
+      { id: "pc_matcha_ichigo", name: "抹茶いちご", emoji: "🍵", ...pcs(30) },
+      { id: "pc_houji_warabi", name: "ほうじ茶わらび餅", emoji: "🫖", ...pcs(30) },
+      { id: "pc_nama_kuri_an", name: "生栗あん", emoji: "🌰", ...pcs(30) },
+      { id: "pc_beniimo_annou", name: "紅芋＆安納芋", emoji: "🍠", ...pcs(30) },
+      { id: "pc_chococream_ichigo", name: "チョコクリームいちご", emoji: "🍫", ...pcs(45) },
+      { id: "pc_chococream_banana", name: "チョコクリームバナナ", emoji: "🍩", ...pcs(45) },
+      { id: "pc_custard_pudding", name: "生カスタードプリン", emoji: "🍮", ...pcs(45) },
+      { id: "pc_chocomint", name: "チョコミント", emoji: "🌿", ...pcs(30) },
+      { id: "pc_ichigocream_ichigo", name: "いちごクリームいちご", emoji: "🎂", ...pcs(45) },
+      { id: "pc_ichigo_daifuku", name: "いちご大福", emoji: "🍡", ...pcs(45) },
     ],
   },
   {
@@ -64,10 +71,10 @@ export const CAN_GROUPS: CanGroup[] = [
     emoji: "🫐",
     color: "#e4c7f5",
     items: [
-      { id: "ac_ichigo", name: "いちご", ...pcs(100) },
-      { id: "ac_chocobanana", name: "チョコバナナ", ...pcs(45) },
-      { id: "ac_kiwi", name: "キウイ", ...pcs(45) },
-      { id: "ac_pine", name: "パイン", ...pcs(45) },
+      { id: "ac_ichigo", name: "いちご", emoji: "🍓", ...pcs(100) },
+      { id: "ac_chocobanana", name: "チョコバナナ", emoji: "🍌", ...pcs(45) },
+      { id: "ac_kiwi", name: "キウイ", emoji: "🥝", ...pcs(45) },
+      { id: "ac_pine", name: "パイン", emoji: "🍍", ...pcs(45) },
     ],
   },
   {
@@ -76,14 +83,14 @@ export const CAN_GROUPS: CanGroup[] = [
     emoji: "🍪",
     color: "#ffff99",
     items: [
-      { id: "or_sand", name: "オレオサンド", ...pcs(96) },
-      { id: "or_choco", name: "チョコオレオ", ...pcs(48) },
-      { id: "or_matcha", name: "抹茶オレオ", ...pcs(48) },
-      { id: "or_ichigo", name: "いちごオレオ", ...pcs(48) },
-      { id: "or_mango", name: "マンゴーオレオ", ...pcs(48) },
-      { id: "or_tonyu", name: "豆乳オレオ", ...pcs(15) },
+      { id: "or_sand", name: "オレオサンド", emoji: "🥪", ...pcs(96) },
+      { id: "or_choco", name: "チョコオレオ", emoji: "🍫", ...pcs(48) },
+      { id: "or_matcha", name: "抹茶オレオ", emoji: "🍵", ...pcs(48) },
+      { id: "or_ichigo", name: "いちごオレオ", emoji: "🍓", ...pcs(48) },
+      { id: "or_mango", name: "マンゴーオレオ", emoji: "🥭", ...pcs(48) },
+      { id: "or_tonyu", name: "豆乳オレオ", emoji: "🥛", ...pcs(15) },
       // 紙でも絶対在庫数が空欄。数えるだけで充足率は出さない
-      { id: "or_shikaku", name: "四角オレオ", target: 0, targetLabel: "" },
+      { id: "or_shikaku", name: "四角オレオ", emoji: "🔲", target: 0, targetLabel: "" },
     ],
   },
   {
@@ -92,11 +99,11 @@ export const CAN_GROUPS: CanGroup[] = [
     emoji: "🥣",
     color: "#c6e0b4",
     items: [
-      { id: "am_acai", name: "アサイー", target: 2, targetLabel: "未開封2pc" },
-      { id: "am_container", name: "容器・蓋", target: 200, targetLabel: "各200個" },
-      { id: "am_mixberry", name: "ミックスベリー", target: 3, targetLabel: "未開封3pc" },
-      { id: "am_nuts", name: "ナッツ", target: 6, targetLabel: "6pc" },
-      { id: "am_honeycomb", name: "巣蜜", target: 10, targetLabel: "10個" },
+      { id: "am_acai", name: "アサイー", emoji: "🫐", target: 2, targetLabel: "未開封2pc" },
+      { id: "am_container", name: "容器・蓋", emoji: "🥡", target: 200, targetLabel: "各200個" },
+      { id: "am_mixberry", name: "ミックスベリー", emoji: "🍒", target: 3, targetLabel: "未開封3pc" },
+      { id: "am_nuts", name: "ナッツ", emoji: "🥜", target: 6, targetLabel: "6pc" },
+      { id: "am_honeycomb", name: "巣蜜", emoji: "🍯", target: 10, targetLabel: "10個" },
     ],
   },
 ];

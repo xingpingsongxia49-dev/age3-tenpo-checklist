@@ -1,6 +1,7 @@
 import {
   canMadeTotal,
   canSummary,
+  topCanMade,
   prettyDate,
   pct,
   productRowsOf,
@@ -67,14 +68,30 @@ export function toLineText(report: Report, settings: Settings): string {
   L.push("");
 
   // 缶商品の当日製造数。在庫数の報告は在庫チェック側の担当なのでここには出さない
+  //
+  // 何を何個作ったのかが読み取れることを優先する。
+  // 品目ごとの絵文字を頭に置き、グループごとの小計も出す。
+  // 「いちご」はパンケーキ缶にもアサイー缶にもあるので、名前だけだと
+  // LINEで流し読みしたときに区別が付かない。
   L.push("【缶商品の当日製造数】");
-  for (const g of CAN_GROUPS) {
-    const made = g.items.filter((it) => report.cans[it.id]?.made);
-    if (!made.length) continue;
-    L.push(`${g.emoji}${g.name}`);
-    for (const it of made) L.push(`▶︎ ${it.name}：${report.cans[it.id]?.made}個`);
+  const canTotal = canMadeTotal(report);
+  if (canTotal > 0) {
+    const most = topCanMade(report);
+    if (most) L.push(`🏆 いちばん多く作ったもの：${most.emoji}${most.name} ${most.made}個`);
+    L.push("");
+    for (const g of CAN_GROUPS) {
+      const made = g.items.filter((it) => report.cans[it.id]?.made);
+      if (!made.length) continue;
+      const sub = made.reduce((n, it) => n + (report.cans[it.id]?.made ?? 0), 0);
+      L.push(`${g.emoji}${g.name}　小計 ${sub}個`);
+      for (const it of made) L.push(`▶︎ ${it.emoji}${it.name}：${report.cans[it.id]?.made}個`);
+      L.push("");
+    }
+  } else {
+    L.push("▶︎ 本日の製造はありません");
+    L.push("");
   }
-  L.push(`▶ 製造合計：${canMadeTotal(report)}個`);
+  L.push(`▶ 製造合計：${canTotal}個`);
   L.push("");
   L.push("⸻");
   L.push("");
@@ -186,7 +203,9 @@ export function toStockText(report: Report, settings: Settings): string {
     L.push(`${g.emoji}${g.name}`);
     for (const it of g.items) {
       const e = report.cans[it.id];
-      L.push(`　${it.name}：在庫 ${e?.stock ?? "—"} / ${it.targetLabel || "—"}`);
+      // 日報と同じく品目の絵文字を頭に置く。「いちご」はパンケーキ缶にも
+      // アサイー缶にもあるので、名前だけだと流し読みで取り違える
+      L.push(`　${it.emoji}${it.name}：在庫 ${e?.stock ?? "—"} / ${it.targetLabel || "—"}`);
     }
   }
   L.push("");

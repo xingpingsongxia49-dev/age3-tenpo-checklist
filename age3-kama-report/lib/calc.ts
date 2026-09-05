@@ -143,6 +143,20 @@ export function canMadeTotal(report: Report): number {
   return CAN_ITEMS.reduce((s, i) => s + (report.cans[i.id]?.made ?? 0), 0);
 }
 
+/** その日いちばん多く作った缶商品。同数ならマスタで先に並んでいるほう */
+export function topCanMade(
+  report: Report,
+): { id: string; name: string; emoji: string; made: number } | null {
+  let best: { id: string; name: string; emoji: string; made: number } | null = null;
+  for (const i of CAN_ITEMS) {
+    const made = report.cans[i.id]?.made ?? 0;
+    if (made > 0 && (!best || made > best.made)) {
+      best = { id: i.id, name: i.name, emoji: i.emoji, made };
+    }
+  }
+  return best;
+}
+
 /**
  * 保存済みの日報を今のマスタに合わせて埋め直す。
  * 商品が増えた後で古い日報を開いても落ちないようにするための保険。
