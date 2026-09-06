@@ -628,6 +628,22 @@ textarea {
   font-size: 7pt;
 }
 
+/* ---- 視察後まとめ ---- */
+
+.pr-wrap th.w-wrap {
+  width: 34mm;
+  text-align: left;
+  vertical-align: top;
+  background: #f4f1ee;
+  color: #3e2c23;
+}
+
+.pr-wrap td {
+  vertical-align: top;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
 /* ---- 写真 ---- */
 
 .pr-photos {

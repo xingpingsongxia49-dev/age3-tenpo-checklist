@@ -222,9 +222,20 @@ export function StoreReport({
     ...new Set([...gallery.map((p) => p.pid), ...issuePhotoIds]),
   ]);
 
+  // 視察後まとめ。書かれた欄だけ出す
+  const wrapUpRows = (
+    [
+      ["できていること", inspection.wrapUp?.good],
+      ["すぐ直すべきこと", inspection.wrapUp?.fixNow],
+      ["仕組み・ルールを変えるべき点", inspection.wrapUp?.system],
+      ["人・配置・教育の課題", inspection.wrapUp?.people],
+    ] as [string, string | undefined][]
+  ).filter(([, v]) => (v ?? "").trim() !== "");
+
   // 節番号は中身の有無で変わる
   let sec = 1;
   const secCategory = sec++;
+  const secWrapUp = wrapUpRows.length > 0 ? sec++ : null;
   const secPhotos = gallery.length > 0 ? sec++ : null;
   const secPrevious = previous && prevS ? sec++ : null;
   const secIssues = sec++;
@@ -372,6 +383,23 @@ export function StoreReport({
       <p className="pr-foot-note">
         加重達成率 ＝ Σ(重み×判定係数) ÷ Σ(重み)。重み S=5／A=3／B=1、判定 ○=1.0／△=0.5／×=0。対象外と未入力は分母から除外。
       </p>
+
+      {/* 視察後まとめ。数字より先に「で、何をするのか」を読ませる */}
+      {wrapUpRows.length > 0 && (
+        <>
+          <h2 className="pr-h2">{secWrapUp}. 視察後まとめ（視察者の所見）</h2>
+          <table className="pr-table pr-wrap">
+            <tbody>
+              {wrapUpRows.map(([label, text]) => (
+                <tr key={label}>
+                  <th className="w-wrap">{label}</th>
+                  <td>{text}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
 
       {/* 現場写真。1ページ目の空きから並べ、入り切らない分は次のページへ続く。
           どの写真も同じ大きさ（枠の高さをCSSで固定）で、順番は ×→△→○ */}

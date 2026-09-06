@@ -16,7 +16,7 @@ import {
 } from "react";
 import { compressImage, storage } from "./storage";
 import type { AppData, Answer, Inspection, StoreName } from "./types";
-import { EMPTY_ANSWER, EMPTY_APP_DATA } from "./types";
+import { EMPTY_ANSWER, EMPTY_APP_DATA, EMPTY_WRAP_UP } from "./types";
 
 export function todayISO(): string {
   const d = new Date();
@@ -91,6 +91,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         createdAt: stamp(),
         updatedAt: stamp(),
         completedAt: null,
+        wrapUp: { ...EMPTY_WRAP_UP },
       };
       mutate((d) => ({
         ...d,

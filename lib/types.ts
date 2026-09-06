@@ -36,6 +36,29 @@ export type Answer = {
   photos: string[];
 };
 
+/**
+ * 視察の最後に、視察者が自分の言葉で書く総括。
+ * ○×の集計だけでは「で、何をするのか」が残らないため、
+ * 報告書の1ページ目にそのまま載せる。
+ */
+export type WrapUp = {
+  /** できていること。褒める材料を言語化する */
+  good: string;
+  /** すぐ直すべきこと */
+  fixNow: string;
+  /** 仕組み・ルールを変えるべき点（現場を叱っても直らないもの） */
+  system: string;
+  /** 人・配置・教育の課題 */
+  people: string;
+};
+
+export const EMPTY_WRAP_UP: WrapUp = {
+  good: "",
+  fixNow: "",
+  system: "",
+  people: "",
+};
+
 export type Inspection = {
   id: string;
   store: StoreName;
@@ -47,6 +70,8 @@ export type Inspection = {
   updatedAt: string;
   /** 視察を締めた日時。締めると履歴に確定表示される */
   completedAt: string | null;
+  /** 視察後まとめ（自由記述） */
+  wrapUp: WrapUp;
 };
 
 export type AppData = {

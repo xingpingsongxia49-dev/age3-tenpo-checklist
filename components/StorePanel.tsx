@@ -22,6 +22,7 @@ import { StoreReport } from "./PrintReport";
 import { usePrint } from "@/lib/usePrint";
 import { PrintPortal } from "./PrintPortal";
 import { PreviewBar } from "./PreviewBar";
+import { WrapUp } from "./WrapUp";
 import { todayISO, useStore } from "@/lib/store";
 import { EMPTY_ANSWER, type StoreName, type Weight } from "@/lib/types";
 
@@ -171,7 +172,8 @@ export function StorePanel({ store }: { store: StoreName }) {
           : "var(--color-na-bg)";
 
   return (
-    <Card>
+    <>
+      <Card>
       {/* 視察日・視察者 */}
       <div className="mb-3 flex gap-2">
         <input
@@ -495,6 +497,12 @@ export function StorePanel({ store }: { store: StoreName }) {
         />
       </PrintPortal>
       {preview && <PreviewBar onPrint={print} onClose={() => setPreview(false)} />}
-    </Card>
+      </Card>
+
+      {/* 視察後まとめ。○×の集計だけでは「で、何をするのか」が残らない */}
+      <div className="mt-4">
+        <WrapUp inspection={inspection} />
+      </div>
+    </>
   );
 }

@@ -7,7 +7,7 @@
 
 import { createSupabaseStorage, isSupabaseConfigured } from "./storage-supabase";
 import type { AppData } from "./types";
-import { EMPTY_APP_DATA } from "./types";
+import { EMPTY_APP_DATA, EMPTY_WRAP_UP } from "./types";
 
 const LS_KEY = "age3-tenpo-checklist:v1";
 const DB_NAME = "age3-tenpo-checklist";
@@ -96,6 +96,8 @@ function normalize(raw: unknown): AppData {
     lastInspector: typeof d.lastInspector === "string" ? d.lastInspector : "",
     inspections: d.inspections.map((insp) => ({
       ...insp,
+      // 古いデータには総括が無い。無ければ空で埋めて画面が落ちないようにする
+      wrapUp: { ...EMPTY_WRAP_UP, ...(insp.wrapUp ?? {}) },
       answers: Object.fromEntries(
         Object.entries(insp.answers ?? {}).map(([k, v]) => [
           k,
