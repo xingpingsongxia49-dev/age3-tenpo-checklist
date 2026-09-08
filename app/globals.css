@@ -271,6 +271,13 @@ textarea {
     print-color-adjust: exact !important;
   }
 
+  /* 見出しと表、表の中身が改ページで割れないようにする。
+     入り切らないときだけブラウザが自動で割る（そのとき見出し行は繰り返す） */
+  .pr-keep {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
   /* 行や図が改ページで割れないようにする（改ページ自体は許可する） */
   .pr-table tr,
   .pr-summary,
@@ -286,6 +293,13 @@ textarea {
   .pr-h2 {
     page-break-after: avoid;
     break-after: avoid;
+  }
+
+  /* 注記だけが次のページに独りで残らないようにする */
+  .pr-foot-note,
+  .pr-omit {
+    page-break-before: avoid;
+    break-before: avoid;
   }
 
   /* 長い表はページをまたぐので、2枚目にも見出し行を出す */
@@ -805,7 +819,7 @@ textarea {
 
 .pr-card-shot img {
   width: 100%;
-  height: 32mm;
+  height: 30mm;
   object-fit: cover;
   display: block;
 }
@@ -909,7 +923,12 @@ textarea {
   margin-right: 0.8mm;
 }
 
-/* メモ（確認した事実）。2列にしてカードが広くなったぶん、3行まで見せる */
+/*
+ * メモ（確認した事実）。
+ * 高さを行数ぴったりに固定する。flexで余白いっぱいに伸ばすと、
+ * 行の途中で切れて「…」も出ないまま文字が欠ける。
+ * 写真付きのカードは本文の余白が狭いので2行、写真なしは3行。
+ */
 .pr-card-fact {
   font-size: 7.4pt;
   color: #333;
@@ -920,19 +939,29 @@ textarea {
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  flex: 1;
-  min-height: 0;
+  max-height: calc(3 * 1.45em);
 }
 
+.pr-card.is-shot .pr-card-fact {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  max-height: calc(2 * 1.45em);
+}
+
+/* 担当・期限とタグを1行にまとめる。行を増やすと写真付きカードで本文が切れる */
 .pr-card-fix {
   font-size: 7.2pt;
   color: #333;
-  margin-top: 1mm;
+  margin-top: auto;
   border-top: 0.4pt dotted #ddd6cd;
   padding-top: 0.8mm;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pr-card-fix .pr-tag {
+  margin-right: 1.2mm;
 }
 
 .pr-missing {

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ItemRow } from "./ItemRow";
 import { Bar, Card, JUDGEMENT_COLOR, JUDGEMENT_ICON, Notice, WarningBand } from "./ui";
-import { useEnsureTodayInspection } from "@/lib/hooks";
+import { useEnsureTodayInspection, useInspectionParam, useInspectionsOf } from "@/lib/hooks";
 import {
   answerOf,
   batsuStreak,
@@ -52,8 +52,16 @@ const WEIGHT_GROUPS: { weight: Weight; title: string; lead: string }[] = [
 ];
 
 export function StorePanel({ store }: { store: StoreName }) {
-  const { data, ready, updateInspection, updateAnswer, resetInspection } = useStore();
-  const inspection = useEnsureTodayInspection(store);
+  const { data, ready, createInspection, updateInspection, updateAnswer, resetInspection } =
+    useStore();
+  const today = useEnsureTodayInspection(store);
+  const [pickedId, setPickedId] = useInspectionParam();
+  const history = useInspectionsOf(store);
+
+  // 過去の視察を開いているときはそれを、そうでなければ今日の分を編集する
+  const picked = pickedId ? history.find((i) => i.id === pickedId) : undefined;
+  const inspection = picked ?? today;
+  const isPast = !!picked && picked.id !== today?.id;
   const [filter, setFilter] = useState<Filter>("all");
   const [flash, setFlash] = useState("");
   const [withPhotos, setWithPhotos] = useState(true);
@@ -174,6 +182,54 @@ export function StorePanel({ store }: { store: StoreName }) {
   return (
     <>
       <Card>
+      {/* どの視察を開くか。過去の分を呼び戻して続きを入力できる */}
+      <div className="mb-3 flex items-center gap-2">
+        <span className="shrink-0 text-[12px] text-[var(--color-sub)]">記録</span>
+        <select
+          value={inspection.id}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "__new__") {
+              const insp = createInspection(store, todayISO(), data.lastInspector || "松下");
+              setPickedId(insp.id);
+              say("新しい視察を作りました");
+              return;
+            }
+            setPickedId(v === today?.id ? null : v);
+          }}
+          aria-label="開く視察"
+          className="chip min-h-[40px] flex-1 px-3 text-[14px]"
+        >
+          {history.map((i) => {
+            const si = summarize(i);
+            return (
+              <option key={i.id} value={i.id}>
+                {i.date}
+                {i.id === today?.id ? "（今日）" : ""}／
+                {si.total - si.unanswered}/{si.total}入力
+                {si.batsu > 0 ? ` ×${si.batsu}` : ""}
+              </option>
+            );
+          })}
+          <option value="__new__">＋ 新しい視察を作る</option>
+        </select>
+      </div>
+
+      {isPast && (
+        <div className="notice mb-3 flex items-center gap-2 px-3 py-2.5">
+          <p className="min-w-0 flex-1 text-[12px] font-bold leading-relaxed">
+            過去の視察（{inspection.date}）を開いています。ここでの入力はこの日の記録に上書きされます。
+          </p>
+          <button
+            type="button"
+            className="chip min-h-[36px] shrink-0 px-3 text-[12px] font-bold"
+            onClick={() => setPickedId(null)}
+          >
+            今日に戻る
+          </button>
+        </div>
+      )}
+
       {/* 視察日・視察者 */}
       <div className="mb-3 flex gap-2">
         <input

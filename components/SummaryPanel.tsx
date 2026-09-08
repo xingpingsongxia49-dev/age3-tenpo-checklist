@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import { useRef, useState } from "react";
 import { Bar, Card, JUDGEMENT_COLOR, Notice } from "./ui";
 import { STORES } from "@/lib/checklist";
@@ -33,6 +35,7 @@ const STATUS_BG: Record<Correction["status"], string> = {
 };
 
 export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
+  const router = useRouter();
   const { data, ready, updateAnswer, deleteInspection, exportBundle, importBundle, clearAll } =
     useStore();
   const [showDone, setShowDone] = useState(false);
@@ -266,6 +269,9 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
       {/* 視察履歴 */}
       <Card>
         <h2 className="text-[16px] font-bold">視察履歴（{history.length}件）</h2>
+        <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-sub)]">
+          「開く」を押すと、その日の記録をそのまま呼び戻して続きを入力できます。
+        </p>
         {history.length === 0 ? (
           <p className="mt-3 text-[13px] text-[var(--color-sub)]">まだ記録がありません。</p>
         ) : (
@@ -294,6 +300,19 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
                     </p>
                   </div>
                   <span className="tabular text-[16px] font-bold">{pct(s.weightedRate)}</span>
+                  {/* 過去の記録を開いて、続きを入力できるようにする */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.replace(
+                        `?store=${encodeURIComponent(insp.store)}&id=${encodeURIComponent(insp.id)}`,
+                        { scroll: true },
+                      )
+                    }
+                    className="chip min-h-[36px] shrink-0 px-3 text-[12px] font-bold"
+                  >
+                    開く
+                  </button>
                   <button
                     type="button"
                     onClick={() => {

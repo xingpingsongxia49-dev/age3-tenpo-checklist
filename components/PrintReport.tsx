@@ -331,7 +331,8 @@ export function StoreReport({
         </p>
       )}
 
-      {/* 1. カテゴリ別 */}
+      {/* 1. カテゴリ別。見出し・表・注記を1かたまりにして途中で切らせない */}
+      <section className="pr-keep">
       <h2 className="pr-h2">{secCategory}. カテゴリ別 加重達成率</h2>
       <table className="pr-table pr-cat">
         <thead>
@@ -383,10 +384,11 @@ export function StoreReport({
       <p className="pr-foot-note">
         加重達成率 ＝ Σ(重み×判定係数) ÷ Σ(重み)。重み S=5／A=3／B=1、判定 ○=1.0／△=0.5／×=0。対象外と未入力は分母から除外。
       </p>
+      </section>
 
       {/* 視察後まとめ。数字より先に「で、何をするのか」を読ませる */}
       {wrapUpRows.length > 0 && (
-        <>
+        <section className="pr-keep">
           <h2 className="pr-h2">{secWrapUp}. 視察後まとめ（視察者の所見）</h2>
           <table className="pr-table pr-wrap">
             <tbody>
@@ -398,7 +400,7 @@ export function StoreReport({
               ))}
             </tbody>
           </table>
-        </>
+        </section>
       )}
 
       {/* 現場写真。1ページ目の空きから並べ、入り切らない分は次のページへ続く。
@@ -433,7 +435,7 @@ export function StoreReport({
 
       {/* 前回比較 */}
       {previous && prevS && (
-        <>
+        <section className="pr-keep">
           <h2 className="pr-h2">
             {secPrevious}. 前回（{previous.date}）との比較
           </h2>
@@ -526,7 +528,7 @@ export function StoreReport({
               {fixedItems.map((i) => `${i.id}. ${i.text}`).join("／")}
             </p>
           )}
-        </>
+        </section>
       )}
 
       {/* 要改善（写真主体のカード。写真の下に詳細をテキストで置く）
@@ -545,7 +547,7 @@ export function StoreReport({
               : [];
             const ink = a.judgement === "×" ? INK.ng : INK.mid;
             return (
-              <article className="pr-card" key={item.id}>
+              <article className={`pr-card${shots.length > 0 ? " is-shot" : ""}`} key={item.id}>
                 {shots.length > 0 ? (
                   <div className={`pr-card-shots${shots.length > 1 ? " is-multi" : ""}`}>
                     {shots.slice(0, 2).map((u, i) => (
@@ -589,6 +591,11 @@ export function StoreReport({
                   </p>
                   {a.note && <p className="pr-card-fact">事実：{a.note}</p>}
                   <p className="pr-card-fix">
+                    {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
+                    {worsened && <span className="pr-tag is-ng">悪化</span>}
+                    {(streaks.get(item.id) ?? 0) >= 2 && (
+                      <span className="pr-tag is-ng">{streaks.get(item.id)}回連続×</span>
+                    )}
                     {a.judgement === "×" ? (
                       <>
                         担当：
@@ -605,15 +612,7 @@ export function StoreReport({
                       <span className="pr-card-hint">△は是正担当・期限の記入対象外</span>
                     )}
                   </p>
-                  {(prevJudgement || worsened || (streaks.get(item.id) ?? 0) >= 2) && (
-                    <p className="pr-card-tags">
-                      {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
-                      {worsened && <span className="pr-tag is-ng">悪化</span>}
-                      {(streaks.get(item.id) ?? 0) >= 2 && (
-                        <span className="pr-tag is-ng">{streaks.get(item.id)}回連続×</span>
-                      )}
-                    </p>
-                  )}
+
                 </div>
               </article>
             );
@@ -723,6 +722,7 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
         </div>
       </div>
 
+      <section className="pr-keep">
       <h2 className="pr-h2">1. 3店舗比較（各店の直近視察）</h2>
       <table className="pr-table">
         <thead>
@@ -769,7 +769,9 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
         3店を同じ基準で並べることで、「1店だけの問題」か「全社の問題」かを判別する。
         全店で同じカテゴリが低い場合、原因は現場ではなく本部の基準づくりにある。
       </p>
+      </section>
 
+      <section className="pr-keep">
       <h2 className="pr-h2">2. カテゴリ別 3店比較（加重達成率）</h2>
       <table className="pr-table pr-cat">
         <thead>
@@ -814,7 +816,9 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
           })}
         </tbody>
       </table>
+      </section>
 
+      <section className="pr-keep">
       <h2 className="pr-h2">
         3. 是正管理台帳（未完了 {allCorrections.length}件
         {omitted > 0 ? `　※${corrections.length}件を掲載` : ""}）
@@ -866,7 +870,9 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
           ほか{omitted}件は本紙に載せていません。全件はアプリの「まとめ → 是正台帳」またはCSV書き出しで確認してください。
         </p>
       )}
+      </section>
 
+      <section className="pr-keep">
       <h2 className="pr-h2">
         4. 視察履歴（{history.length}件
         {history.length > historyRows.length ? `　※直近${historyRows.length}件を掲載` : ""}）
@@ -913,6 +919,7 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
         加重達成率 ＝ Σ(重み×判定係数) ÷ Σ(重み)。重み S=5／A=3／B=1、判定 ○=1.0／△=0.5／×=0。
         合格ライン 80%以上=緑／60〜79%=黄／60%未満=赤。ただしS項目に×が1件でもあれば総合何%でも赤。
       </p>
+      </section>
     </div>
   );
 }

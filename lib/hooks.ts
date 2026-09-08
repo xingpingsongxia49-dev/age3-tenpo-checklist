@@ -25,12 +25,49 @@ export function useTabParam(): [Tab, (t: Tab) => void] {
     (t: Tab) => {
       const next = new URLSearchParams(params.toString());
       next.set("store", t);
+      // 店を切り替えたら「開いている視察」は持ち越さない
+      next.delete("id");
       router.replace(`?${next.toString()}`, { scroll: false });
     },
     [params, router],
   );
 
   return [tab, setTab];
+}
+
+/**
+ * 編集中の視察のIDをURLに持たせる。
+ * 過去の視察を開き直して続きを入力できるようにするため、
+ * 「どの視察を見ているか」も再読み込みで消えないようにする。
+ */
+export function useInspectionParam(): [string | null, (id: string | null) => void] {
+  const params = useSearchParams();
+  const router = useRouter();
+  const id = params.get("id");
+
+  const setId = useCallback(
+    (next: string | null) => {
+      const p = new URLSearchParams(params.toString());
+      if (next) p.set("id", next);
+      else p.delete("id");
+      router.replace(`?${p.toString()}`, { scroll: false });
+    },
+    [params, router],
+  );
+
+  return [id, setId];
+}
+
+/** その店舗の視察を新しい順に並べる（空のものも含む） */
+export function useInspectionsOf(store: StoreName): Inspection[] {
+  const { data } = useStore();
+  return useMemo(
+    () =>
+      data.inspections
+        .filter((i) => i.store === store)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)),
+    [data.inspections, store],
+  );
 }
 
 /** その店舗の「今日の視察」。無ければ undefined */
