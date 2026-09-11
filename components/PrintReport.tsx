@@ -31,8 +31,12 @@ import type { Answer, ChecklistItem, Inspection } from "@/lib/types";
 
 const INK = { ok: "#2F6B46", mid: "#8A6D22", ng: "#A33A2E", na: "#8A7A6D" };
 
-/** 本編（表と集計）を2枚に収めるための上限。超えた分は件数だけ明記して落とす */
-const MAX_ISSUE_ROWS = 16;
+/**
+ * 掲載件数の上限。超えた分は件数だけ明記して落とす。
+ * カードは中身なりの高さで2段に流し込み、前の節の続きから詰めるので、
+ * 20件なら紙のあまりが少ない。
+ */
+const MAX_ISSUE_ROWS = 20;
 const MAX_LEDGER_ROWS = 16;
 const MAX_HISTORY_ROWS = 8;
 
@@ -437,8 +441,8 @@ export function StoreReport({
       )}
 
       {/* 要改善（写真主体のカード。写真の下に詳細をテキストで置く）
-          1ページ8枚（2列×4段）に揃えるため、必ずページの頭から始める */}
-      <h2 className="pr-h2 pr-h2-break">
+          高さが中身なりになったので、前の節の続きからそのまま詰める */}
+      <h2 className="pr-h2">
         {secIssues}. 要改善（×と△／{allIssues.length}件
         {omitted > 0 ? `　※重要度の高い${issues.length}件を掲載` : ""}）
       </h2>

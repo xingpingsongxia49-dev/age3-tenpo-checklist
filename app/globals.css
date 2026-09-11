@@ -483,13 +483,6 @@ textarea {
 
 /* ---- 見出し・表 ---- */
 
-/* 要改善は必ずページの頭から始める。途中から始まると1ページ8枚が崩れる */
-.pr-h2-break {
-  page-break-before: always;
-  break-before: page;
-  margin-top: 0;
-}
-
 .pr-h2 {
   font-size: 10pt;
   font-weight: 700;
@@ -688,10 +681,15 @@ textarea {
 /* 1ページちょうど8枚（2列×4段）。カードの高さを固定して段数を確定させる。
    A4の刷り面 約276mm から見出しぶんを引き、4段＋段間に収まる高さにする。
    61mm×4段 + 4mm×3 = 256mm。見出し(約10mm)を足しても余裕がある。 */
+/*
+ * 要改善カード。2段組みに流し込み、カードの高さは中身なり。
+ * 高さを固定すると、短いカードの中に大きな空白ができ、
+ * 長いカードでは文字が切れる。段組みなら上から詰まり、
+ * 1ページに入る枚数は中身の量で決まる。
+ */
 .pr-cards {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 4mm;
+  columns: 2;
+  column-gap: 4mm;
 }
 
 .pr-card {
@@ -701,9 +699,10 @@ textarea {
   page-break-inside: avoid;
   break-inside: avoid;
   background: #fff;
-  height: 61mm;
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 4mm;
+  /* 段組みの中では inline-block にしないと幅が決まらない */
+  display: inline-block;
+  width: 100%;
 }
 
 .pr-card-shots {
@@ -769,14 +768,8 @@ textarea {
   font-size: 7pt;
 }
 
-/* 残りの高さを本文に割り当てる。はみ出す分は各要素の行数制限で切る */
 .pr-card-body {
   padding: 1.6mm 2.4mm 2mm;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
 .pr-card-meta {
@@ -806,19 +799,11 @@ textarea {
   text-overflow: ellipsis;
 }
 
-/* 項目名は切らない。3行まで置けるようにして、短ければ余白になるだけにする */
+/* 項目名もメモも切らない。カードの高さが中身なりなので行数制限は要らない */
 .pr-card-title {
   font-size: 7.9pt;
   font-weight: 700;
   line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  /* flexの伸縮で潰されないようにする。高さは行数制限だけで決める
-     （max-height を足すと端数で最終行が数px欠ける） */
-  flex: none;
 }
 
 .pr-card-no {
@@ -827,35 +812,19 @@ textarea {
   margin-right: 0.8mm;
 }
 
-/*
- * メモ（確認した事実）。
- * 高さを行数ぴったりに固定する。flexで余白いっぱいに伸ばすと、
- * 行の途中で切れて「…」も出ないまま文字が欠ける。
- * 写真付きのカードは本文の余白が狭いので2行、写真なしは3行。
- */
+/* メモ（確認した事実）。全文を出す */
 .pr-card-fact {
   font-size: 7.2pt;
   color: #333;
   line-height: 1.4;
   margin-top: 0.8mm;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  flex: none;
 }
 
-.pr-card.is-shot .pr-card-fact {
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-/* 担当・期限とタグを1行にまとめる。行を増やすと写真付きカードで本文が切れる */
+/* 担当・期限とタグは1行にまとめる */
 .pr-card-fix {
   font-size: 7.2pt;
   color: #333;
-  margin-top: auto;
+  margin-top: 1.2mm;
   border-top: 0.4pt dotted #ddd6cd;
   padding-top: 0.8mm;
   white-space: nowrap;
@@ -885,7 +854,7 @@ textarea {
 /* 印刷の刷り面が狭く組まれた端末では、3列だと1枚あたりが小さくなりすぎる */
 @media print and (max-width: 150mm) {
   .pr-cards {
-    grid-template-columns: repeat(2, 1fr);
+    columns: 2;
   }
 
   .pr-kpi-grid {
