@@ -296,7 +296,7 @@ export async function shareReportImage(
     const blob = await canvasToBlob(canvas);
     if (!blob) return "failed";
 
-    const filename = `Age3_${inspection.store}_${inspection.date}.png`;
+    const filename = `${inspection.store}店　店舗チェック ${inspection.date}.png`;
     const file = new File([blob], filename, { type: "image/png" });
 
     const nav = navigator as Navigator & {

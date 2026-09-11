@@ -504,7 +504,8 @@ textarea {
   padding: 0.9mm 1.3mm;
   vertical-align: middle;
   text-align: left;
-  overflow: hidden;
+  /* overflow: hidden を付けると、幅を決めた列で文字が切れる。折り返させる */
+  overflow-wrap: anywhere;
 }
 
 .pr-table thead th {
@@ -584,13 +585,9 @@ textarea {
   margin-top: 0.4mm;
 }
 
-/* 事実は2行まで。ここが伸びると2枚に収まらなくなる */
+/* 事実は切らずに全文出す。行が増えても表の行は改ページで割れない */
 .pr-fact-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
 }
 
 .pr-tag {
@@ -794,9 +791,6 @@ textarea {
 .pr-card-cat {
   font-size: 6.8pt;
   color: #7a6a5d;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 /* 項目名もメモも切らない。カードの高さが中身なりなので行数制限は要らない */
@@ -823,20 +817,20 @@ textarea {
   border-left: 0.8mm solid #e7ded5;
 }
 
-/* 担当・期限とタグは1行にまとめる */
+/*
+ * 担当・期限とタグ。1行に押し込むと「期限:2026-09-12」が切れるので、
+ * 入り切らないときは折り返す（カードの高さは中身なりなので伸びてよい）。
+ */
 .pr-card-fix {
   font-size: 7.2pt;
   color: #333;
   margin-top: 1.2mm;
   border-top: 0.4pt dotted #ddd6cd;
   padding-top: 0.8mm;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pr-card-fix .pr-tag {
-  margin-right: 1.2mm;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6mm 1.6mm;
 }
 
 .pr-missing {
@@ -846,12 +840,6 @@ textarea {
 
 .pr-card-hint {
   color: #8a7a6d;
-}
-
-.pr-card-tags {
-  margin-top: 0.6mm;
-  white-space: nowrap;
-  overflow: hidden;
 }
 
 /* 印刷の刷り面が狭く組まれた端末では、3列だと1枚あたりが小さくなりすぎる */

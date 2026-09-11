@@ -465,8 +465,8 @@ export function StorePanel({ store }: { store: StoreName }) {
           type="button"
           className="btn"
           onClick={() =>
-            // 保存されるPDFの名前に店舗と日付を入れる
-            print(`Age3_店舗チェック報告書_${store}_${inspection.date}`)
+            // 保存されるPDFの名前。LINEで見て一目で分かる並びにする
+            print(`${store}店　店舗チェック ${inspection.date}`)
           }
           disabled={printing}
         >
@@ -562,7 +562,7 @@ export function StorePanel({ store }: { store: StoreName }) {
       </PrintPortal>
       {preview && (
         <PreviewBar
-          onPrint={() => print(`Age3_店舗チェック報告書_${store}_${inspection.date}`)}
+          onPrint={() => print(`${store}店　店舗チェック ${inspection.date}`)}
           onClose={() => setPreview(false)}
         />
       )}
