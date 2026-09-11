@@ -17,6 +17,7 @@ import {
 import { correctionsCsv, download, historyCsv } from "@/lib/export";
 import { todayISO, useStore } from "@/lib/store";
 import { AllStoresReport } from "./PrintReport";
+import { useDocumentTitle } from "@/lib/hooks";
 import { usePrint } from "@/lib/usePrint";
 import { PrintPortal } from "./PrintPortal";
 import { PreviewBar } from "./PreviewBar";
@@ -44,6 +45,9 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
   const { printing, printFailed, print, clearFailed } = usePrint();
   const [preview, setPreview] = useState(false);
   const today = todayISO();
+  // PDFの保存名になるので、画面を開いた時点で入れておく
+  const docTitle = `全店　店舗チェック ${today}`;
+  useDocumentTitle(docTitle);
 
   if (!ready) {
     return (
@@ -129,7 +133,7 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
         <button
           type="button"
           className="btn btn-primary mt-4 w-full"
-          onClick={() => print(`全店　店舗チェック ${today}`)}
+          onClick={() => print(docTitle)}
           disabled={printing}
         >
           {printing ? "準備中…" : "全店PDF報告書を作る"}
@@ -435,7 +439,7 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
       </PrintPortal>
       {preview && (
         <PreviewBar
-          onPrint={() => print(`全店　店舗チェック ${today}`)}
+          onPrint={() => print(docTitle)}
           onClose={() => setPreview(false)}
         />
       )}

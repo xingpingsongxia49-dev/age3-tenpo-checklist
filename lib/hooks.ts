@@ -58,6 +58,37 @@ export function useInspectionParam(): [string | null, (id: string | null) => voi
   return [id, setId];
 }
 
+/**
+ * ブラウザのタイトルを、いま開いている画面に合わせて書き換える。
+ *
+ * 「PDFとして保存」したときのファイル名は document.title から取られる。
+ * ところが iOS Safari は、印刷を呼ぶ直前に書き換えても古い名前のまま保存する
+ * （タイトルを自前で控えていて、その場の書き換えを見ない）。実機で
+ * 「Age.3 店舗チェック.pdf」になってしまうのを確認している。
+ * さらに、利用者が共有シートの「プリント」から保存することもあり、
+ * その経路はアプリのPDFボタンを通らないので、印刷時の差し替えでは間に合わない。
+ *
+ * どちらの経路でも店舗名が入るように、画面を開いた時点でタイトルを合わせておく。
+ */
+export function useDocumentTitle(title: string): void {
+  useEffect(() => {
+    if (!title) return;
+
+    const apply = () => {
+      if (document.title !== title) document.title = title;
+    };
+    apply();
+
+    // 一度入れるだけでは足りない。Next のメタデータ（layout.tsx の title）が
+    // 描き直しのたびに効いて「Age.3 店舗チェック」に戻してしまうため、
+    // 戻されたら入れ直す。PDFの保存名になる値なので、ここは確実にしておく。
+    // 自分で書き換えたぶんは上の比較で弾かれるので、堂々巡りにはならない。
+    const watch = new MutationObserver(apply);
+    watch.observe(document.head, { subtree: true, childList: true, characterData: true });
+    return () => watch.disconnect();
+  }, [title]);
+}
+
 /** その店舗の視察を新しい順に並べる（空のものも含む） */
 export function useInspectionsOf(store: StoreName): Inspection[] {
   const { data } = useStore();

@@ -3,7 +3,12 @@
 import { useMemo, useState } from "react";
 import { ItemRow } from "./ItemRow";
 import { Bar, Card, JUDGEMENT_COLOR, JUDGEMENT_ICON, Notice, WarningBand } from "./ui";
-import { useEnsureTodayInspection, useInspectionParam, useInspectionsOf } from "@/lib/hooks";
+import {
+  useDocumentTitle,
+  useEnsureTodayInspection,
+  useInspectionParam,
+  useInspectionsOf,
+} from "@/lib/hooks";
 import {
   answerOf,
   batsuStreak,
@@ -72,6 +77,10 @@ export function StorePanel({ store }: { store: StoreName }) {
     () => (inspection ? findPrevious(data.inspections, inspection) : undefined),
     [data.inspections, inspection],
   );
+
+  // PDFの保存名になるので、画面を開いた時点で店舗名を入れておく
+  const docTitle = `${store}店　店舗チェック ${inspection?.date ?? todayISO()}`;
+  useDocumentTitle(docTitle);
 
   if (!ready || !inspection) {
     return (
@@ -466,7 +475,7 @@ export function StorePanel({ store }: { store: StoreName }) {
           className="btn"
           onClick={() =>
             // 保存されるPDFの名前。LINEで見て一目で分かる並びにする
-            print(`${store}店　店舗チェック ${inspection.date}`)
+            print(docTitle)
           }
           disabled={printing}
         >
@@ -562,7 +571,7 @@ export function StorePanel({ store }: { store: StoreName }) {
       </PrintPortal>
       {preview && (
         <PreviewBar
-          onPrint={() => print(`${store}店　店舗チェック ${inspection.date}`)}
+          onPrint={() => print(docTitle)}
           onClose={() => setPreview(false)}
         />
       )}
