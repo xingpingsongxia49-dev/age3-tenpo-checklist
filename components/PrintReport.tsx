@@ -559,11 +559,24 @@ export function StoreReport({
 /* 全店レポート                                                        */
 /* ------------------------------------------------------------------ */
 
-export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn: string }) {
+/**
+ * 全店比較。`on` に選んだ視察日の3店を横に並べる。
+ * 3店を1日で回るので、日付＝1回の視察にあたる。その日に視察していない店は「未実施」。
+ * `issuedOn` は出力日で、是正の期限切れ判定にも使う（選んだ日ではなく今日で数える）。
+ */
+export function AllStoresReport({
+  all,
+  on,
+  issuedOn,
+}: {
+  all: Inspection[];
+  on: string;
+  issuedOn: string;
+}) {
   const latest = STORES.map((store) => {
     const insp = all
-      .filter((i) => i.store === store)
-      .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))[0];
+      .filter((i) => i.store === store && i.date === on)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     return { store, insp, s: insp ? summarize(insp) : null };
   });
 
@@ -578,6 +591,7 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   const historyRows = history.slice(0, MAX_HISTORY_ROWS);
 
+  const missing = latest.filter((l) => !l.insp).map((l) => l.store);
   const scored = latest.filter((l) => l.s?.weightedRate != null);
   const avg =
     scored.length > 0
@@ -587,7 +601,7 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
 
   return (
     <div className="pr-doc pr-sheet">
-      <Head title="全店 店舗チェック報告書" meta="銀座・原宿・浅草" issuedOn={issuedOn} />
+      <Head title="全店 店舗チェック報告書" meta={`銀座・原宿・浅草　視察日 ${on}`} issuedOn={issuedOn} />
 
       <div className="pr-summary">
         <div className="pr-score-main">
@@ -595,7 +609,7 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
           <span className="pr-score-value" style={{ color: verdictInk(avg === null ? "none" : avg >= 0.8 ? "green" : avg >= 0.6 ? "yellow" : "red") }}>
             {pct(avg)}
           </span>
-          <span className="pr-note">直近視察の単純平均</span>
+          <span className="pr-note">{on} に視察した店の単純平均</span>
         </div>
         <div className="pr-kpi-grid">
           {latest.map(({ store, s }) => (
@@ -645,7 +659,7 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
       </div>
 
       <section className="pr-keep">
-      <h2 className="pr-h2">1. 3店舗比較（各店の直近視察）</h2>
+      <h2 className="pr-h2">1. 3店舗比較（{on} の視察）</h2>
       <table className="pr-table">
         <thead>
           <tr>
@@ -690,11 +704,12 @@ export function AllStoresReport({ all, issuedOn }: { all: Inspection[]; issuedOn
       <p className="pr-foot-note">
         3店を同じ基準で並べることで、「1店だけの問題」か「全社の問題」かを判別する。
         全店で同じカテゴリが低い場合、原因は現場ではなく本部の基準づくりにある。
+        {missing.length > 0 && `　※${missing.join("・")}は${on}に視察していないため「未実施」。`}
       </p>
       </section>
 
       <section className="pr-keep">
-      <h2 className="pr-h2">2. カテゴリ別 3店比較（加重達成率）</h2>
+      <h2 className="pr-h2">2. カテゴリ別 3店比較（加重達成率／{on}）</h2>
       <table className="pr-table pr-cat">
         <thead>
           <tr>

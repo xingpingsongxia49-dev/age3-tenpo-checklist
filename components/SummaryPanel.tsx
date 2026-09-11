@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Bar, Card, JUDGEMENT_COLOR, Notice } from "./ui";
 import { STORES } from "@/lib/checklist";
 import {
@@ -17,7 +17,7 @@ import {
 import { correctionsCsv, download, historyCsv } from "@/lib/export";
 import { todayISO, useStore } from "@/lib/store";
 import { AllStoresReport } from "./PrintReport";
-import { useDocumentTitle } from "@/lib/hooks";
+import { useDateParam, useDocumentTitle } from "@/lib/hooks";
 import { usePrint } from "@/lib/usePrint";
 import { PrintPortal } from "./PrintPortal";
 import { PreviewBar } from "./PreviewBar";
@@ -45,8 +45,25 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
   const { printing, printFailed, print, clearFailed } = usePrint();
   const [preview, setPreview] = useState(false);
   const today = todayISO();
+  const [pickedDate, setPickedDate] = useDateParam();
+
+  /**
+   * 並べ直せる視察日。3店を1日で回るので、日付＝1回の視察にあたる。
+   * 中身のある視察がある日だけを出し、今日は（まだ空でも）必ず先頭に置く。
+   */
+  const dates = useMemo(() => {
+    const withData = data.inspections.filter(hasAnswers).map((i) => i.date);
+    return [...new Set([today, ...withData])].sort((a, b) => b.localeCompare(a));
+  }, [data.inspections, today]);
+
+  // 既定は「今日」。今日まだ何も入力していない日は、直近の視察日を開く
+  const fallback = dates.find((d) => d !== today) ?? today;
+  const hasToday = data.inspections.some((i) => i.date === today && hasAnswers(i));
+  const date = pickedDate && dates.includes(pickedDate) ? pickedDate : hasToday ? today : fallback;
+  const isToday = date === today;
+
   // PDFの保存名になるので、画面を開いた時点で入れておく
-  const docTitle = `全店　店舗チェック ${today}`;
+  const docTitle = `全店　店舗チェック ${date}`;
   useDocumentTitle(docTitle);
 
   if (!ready) {
@@ -72,7 +89,7 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
 
   const todays = STORES.map((store) => {
     const insp = data.inspections
-      .filter((i) => i.store === store && i.date === today)
+      .filter((i) => i.store === store && i.date === date)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     return { store, insp, s: insp ? summarize(insp) : null, total: itemsForStore(store).length };
   });
@@ -81,10 +98,36 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
     <div className="space-y-4">
       {/* 全店舗の進捗一覧 */}
       <Card>
-        <h2 className="text-[16px] font-bold">今日の3店舗</h2>
+        <h2 className="text-[16px] font-bold">{isToday ? "今日の3店舗" : `${date} の3店舗`}</h2>
         <p className="mt-0.5 text-[12px] text-[var(--color-sub)]">
           3店を同じ基準で並べると、「原宿だけの問題」か「全社の問題」かが判別できる。
         </p>
+
+        {/* どの視察日で並べるか。3店を1日で回るので、日付＝1回の視察にあたる */}
+        <div className="mt-3 flex items-center gap-2">
+          <span className="shrink-0 text-[12px] text-[var(--color-sub)]">視察日</span>
+          <select
+            value={date}
+            onChange={(e) => setPickedDate(e.target.value === today ? null : e.target.value)}
+            aria-label="比較する視察日"
+            className="chip min-h-[40px] flex-1 px-3 text-[14px]"
+          >
+            {dates.map((d) => {
+              const done = STORES.filter((store) =>
+                data.inspections.some(
+                  (i) => i.store === store && i.date === d && hasAnswers(i),
+                ),
+              );
+              return (
+                <option key={d} value={d}>
+                  {d}
+                  {d === today ? "（今日）" : ""}／
+                  {done.length > 0 ? done.join("・") : "未着手"}
+                </option>
+              );
+            })}
+          </select>
+        </div>
 
         <ul className="mt-3 space-y-3">
           {todays.map(({ store, s, total }) => {
@@ -435,7 +478,7 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
       {/* 報告書は常に置いておく（画面には出ない）。写真と組版を先に済ませておかないと、
           iOSでは「押したその場で印刷を呼ぶ」ことができない */}
       <PrintPortal preview={preview}>
-        <AllStoresReport all={data.inspections} issuedOn={today} />
+        <AllStoresReport all={data.inspections} on={date} issuedOn={today} />
       </PrintPortal>
       {preview && (
         <PreviewBar

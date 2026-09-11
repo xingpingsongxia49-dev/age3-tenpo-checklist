@@ -25,8 +25,9 @@ export function useTabParam(): [Tab, (t: Tab) => void] {
     (t: Tab) => {
       const next = new URLSearchParams(params.toString());
       next.set("store", t);
-      // 店を切り替えたら「開いている視察」は持ち越さない
+      // 店を切り替えたら「開いている視察」「見ている視察日」は持ち越さない
       next.delete("id");
+      next.delete("date");
       router.replace(`?${next.toString()}`, { scroll: false });
     },
     [params, router],
@@ -56,6 +57,28 @@ export function useInspectionParam(): [string | null, (id: string | null) => voi
   );
 
   return [id, setId];
+}
+
+/**
+ * まとめ（全店比較）で見ている視察日をURLに持たせる。
+ * 8月の視察と並べ直したあとに再読み込みしても、その日のままにしておくため。
+ */
+export function useDateParam(): [string | null, (date: string | null) => void] {
+  const params = useSearchParams();
+  const router = useRouter();
+  const date = params.get("date");
+
+  const setDate = useCallback(
+    (next: string | null) => {
+      const p = new URLSearchParams(params.toString());
+      if (next) p.set("date", next);
+      else p.delete("date");
+      router.replace(`?${p.toString()}`, { scroll: false });
+    },
+    [params, router],
+  );
+
+  return [date, setDate];
 }
 
 /**
