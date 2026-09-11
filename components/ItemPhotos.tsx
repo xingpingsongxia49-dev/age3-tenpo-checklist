@@ -5,6 +5,11 @@ import { usePhotoUrl, useStore } from "@/lib/store";
 
 /**
  * 項目単位の写真欄。各項目の判定ボタンの直下に置く。
+ *
+ * 追加口は「撮影」と「アルバム」の2つ。
+ * input に capture を付けるとiOSはカメラしか出さないので、
+ * アルバム用には capture を付けない（付けないほうは、iOSでは
+ * 「写真を撮る／フォトライブラリ／ファイルを選択」の選択メニューが出る）。
  * どの項目の証拠写真かが1対1で分かるようにするため、写真は項目に紐づける。
  *
  * タイルは2列。縦写真と横写真が混ざっても並びが崩れないよう、
@@ -69,39 +74,60 @@ export function ItemPhotos({
   photos: string[];
 }) {
   const { addPhoto, removePhoto } = useStore();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const albumRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
 
-  const pick = () => fileRef.current?.click();
+  const pickCamera = () => cameraRef.current?.click();
+  const pickAlbum = () => albumRef.current?.click();
+
+  const onPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setBusy(true);
+    for (const file of files) {
+      await addPhoto(inspectionId, itemId, file);
+    }
+    setBusy(false);
+  };
 
   return (
     <section className="cp">
       <div className="cp-head">
         <span className="cp-title">この項目の写真</span>
         <span className="cp-count">{photos.length}枚</span>
-        <button type="button" className="cp-add-btn" onClick={pick} disabled={busy}>
-          {busy ? "保存中…" : "＋ 写真を追加"}
+        {busy && <span className="cp-count">保存中…</span>}
+      </div>
+
+      <div className="cp-actions">
+        <button type="button" className="cp-add-btn" onClick={pickCamera} disabled={busy}>
+          ＋ 撮影
+        </button>
+        <button type="button" className="cp-add-btn" onClick={pickAlbum} disabled={busy}>
+          ＋ アルバムから選ぶ
         </button>
       </div>
 
+      {/* 撮影：その場でカメラが開く */}
       <input
-        ref={fileRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
         multiple
         className="hidden"
-        onChange={async (e) => {
-          const files = Array.from(e.target.files ?? []);
-          e.target.value = "";
-          if (files.length === 0) return;
-          setBusy(true);
-          for (const file of files) {
-            await addPhoto(inspectionId, itemId, file);
-          }
-          setBusy(false);
-        }}
+        onChange={onPicked}
+      />
+      {/* アルバム：capture を付けないので、保存済みの写真から選べる */}
+      <input
+        ref={albumRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={onPicked}
       />
 
       <div className="cp-grid">
@@ -116,7 +142,7 @@ export function ItemPhotos({
 
         {/* 空でも枠の大きさが分かるよう、1マス分のプレースホルダを置く */}
         {photos.length === 0 && (
-          <button type="button" className="cp-placeholder" onClick={pick} disabled={busy}>
+          <button type="button" className="cp-placeholder" onClick={pickAlbum} disabled={busy}>
             <span className="cp-placeholder-plus">＋</span>
             <span className="cp-placeholder-text">写真を追加</span>
           </button>

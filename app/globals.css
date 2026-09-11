@@ -1029,10 +1029,17 @@ textarea {
   color: var(--color-sub);
 }
 
+/* 追加口は「撮影」と「アルバム」の2つを並べる */
+.cp-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .cp-add-btn {
-  margin-left: auto;
-  min-height: 34px;
-  padding: 0 12px;
+  flex: 1;
+  min-height: 38px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--color-line);
   background: var(--color-chip-bg);
