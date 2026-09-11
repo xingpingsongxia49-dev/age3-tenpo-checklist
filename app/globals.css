@@ -682,14 +682,18 @@ textarea {
    A4の刷り面 約276mm から見出しぶんを引き、4段＋段間に収まる高さにする。
    61mm×4段 + 4mm×3 = 256mm。見出し(約10mm)を足しても余裕がある。 */
 /*
- * 要改善カード。2段組みに流し込み、カードの高さは中身なり。
- * 高さを固定すると、短いカードの中に大きな空白ができ、
- * 長いカードでは文字が切れる。段組みなら上から詰まり、
- * 1ページに入る枚数は中身の量で決まる。
+ * 要改善カード。2列に並べ、高さは中身なり。
+ *
+ * 高さを固定すると短いカードの中に大きな空白ができ、長いカードでは文字が切れる。
+ * 段組み（columns）は詰まるが、ブラウザによっては改ページでカードが割れる。
+ * グリッドなら行と行の間でしか改ページが起きないので、カードは絶対に割れない。
+ * align-items: start で、同じ行の背の低いカードが引き伸ばされないようにする。
  */
 .pr-cards {
-  columns: 2;
-  column-gap: 4mm;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  align-items: start;
+  gap: 4mm;
 }
 
 .pr-card {
@@ -699,10 +703,6 @@ textarea {
   page-break-inside: avoid;
   break-inside: avoid;
   background: #fff;
-  margin-bottom: 4mm;
-  /* 段組みの中では inline-block にしないと幅が決まらない */
-  display: inline-block;
-  width: 100%;
 }
 
 .pr-card-shots {
@@ -812,12 +812,15 @@ textarea {
   margin-right: 0.8mm;
 }
 
-/* メモ（確認した事実）。全文を出す */
+/* メモ（確認した事実）。報告書で一番読ませたい部分なので太字で大きめに出す */
 .pr-card-fact {
-  font-size: 7.2pt;
-  color: #333;
-  line-height: 1.4;
-  margin-top: 0.8mm;
+  font-size: 8pt;
+  font-weight: 700;
+  color: #1f1f1f;
+  line-height: 1.45;
+  margin-top: 1.2mm;
+  padding-left: 1.6mm;
+  border-left: 0.8mm solid #e7ded5;
 }
 
 /* 担当・期限とタグは1行にまとめる */
@@ -854,7 +857,7 @@ textarea {
 /* 印刷の刷り面が狭く組まれた端末では、3列だと1枚あたりが小さくなりすぎる */
 @media print and (max-width: 150mm) {
   .pr-cards {
-    columns: 2;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .pr-kpi-grid {

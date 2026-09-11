@@ -461,7 +461,15 @@ export function StorePanel({ store }: { store: StoreName }) {
         >
           画像で保存・共有
         </button>
-        <button type="button" className="btn" onClick={print} disabled={printing}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() =>
+            // 保存されるPDFの名前に店舗と日付を入れる
+            print(`Age3_店舗チェック報告書_${store}_${inspection.date}`)
+          }
+          disabled={printing}
+        >
           {printing ? "写真を読み込み中…" : "PDF報告書を作る"}
         </button>
         <button
@@ -552,7 +560,12 @@ export function StorePanel({ store }: { store: StoreName }) {
           includePhotos={withPhotos}
         />
       </PrintPortal>
-      {preview && <PreviewBar onPrint={print} onClose={() => setPreview(false)} />}
+      {preview && (
+        <PreviewBar
+          onPrint={() => print(`Age3_店舗チェック報告書_${store}_${inspection.date}`)}
+          onClose={() => setPreview(false)}
+        />
+      )}
       </Card>
 
       {/* 視察後まとめ。○×の集計だけでは「で、何をするのか」が残らない */}

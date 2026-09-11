@@ -17,6 +17,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * 押しても何も出ないので、呼んだあと印刷が始まった気配が無ければ
  * 「出なかった」ことを外に伝え、画面プレビューや画像保存に逃がす。
  *
+ * 保存されるPDFの名前は document.title から取られる。店舗と日付が分かる名前にしたいので、
+ * 印刷のあいだだけ title を差し替え、終わったら元に戻す。
+ *
  * 片付けのタイミングも肝。afterprint は「印刷ジョブを渡した時点」で発火するため、
  * それで報告書を畳むと、まだプレビューを見ている最中に中身が消える。
  * そこで afterprint では畳まず、利用者がアプリに戻って操作したときに畳む。
@@ -26,12 +29,32 @@ export function usePrint(): {
   printing: boolean;
   /** 印刷を呼んだのに印刷シートが出た気配が無かった */
   printFailed: boolean;
-  print: () => void;
+  /** docTitle を渡すと、保存されるPDFの名前になる */
+  print: (docTitle?: string) => void;
   clearFailed: () => void;
 } {
   const [printing, setPrinting] = useState(false);
   const [printFailed, setPrintFailed] = useState(false);
   const teardown = useRef<(() => void) | null>(null);
+  const wantedTitle = useRef<string | null>(null);
+  const savedTitle = useRef<string | null>(null);
+
+  /** 印刷のあいだだけ、保存名になるタイトルを差し替える */
+  const withTitle = (fn: () => void) => {
+    const title = wantedTitle.current;
+    if (title) {
+      savedTitle.current = document.title;
+      document.title = title;
+    }
+    fn();
+  };
+
+  const restoreTitle = () => {
+    if (savedTitle.current !== null) {
+      document.title = savedTitle.current;
+      savedTitle.current = null;
+    }
+  };
 
   /** 印刷シートを閉じてアプリに戻ってきたときに片付ける仕掛けを張る */
   const armTeardown = useCallback(() => {
@@ -58,6 +81,7 @@ export function usePrint(): {
       clearTimeout(late);
       clearTimeout(check);
       teardown.current = null;
+      restoreTitle();
       setPrinting(false);
     };
 
@@ -89,16 +113,20 @@ export function usePrint(): {
     );
   };
 
-  const print = useCallback(() => {
-    setPrintFailed(false);
-    if (reportReady()) {
-      // 利用者の操作の中で同期的に呼ぶ（iOSはこれを外すと無視される）
-      armTeardown();
-      window.print();
-      return;
-    }
-    setPrinting(true);
-  }, [armTeardown]);
+  const print = useCallback(
+    (docTitle?: string) => {
+      setPrintFailed(false);
+      wantedTitle.current = docTitle ?? null;
+      if (reportReady()) {
+        // 利用者の操作の中で同期的に呼ぶ（iOSはこれを外すと無視される）
+        armTeardown();
+        withTitle(() => window.print());
+        return;
+      }
+      setPrinting(true);
+    },
+    [armTeardown],
+  );
 
   // 写真がまだ読めていないときだけ、待ってから印刷する
   useEffect(() => {
@@ -117,7 +145,7 @@ export function usePrint(): {
       }
       if (cancelled) return;
       armTeardown();
-      window.print();
+      withTitle(() => window.print());
     };
 
     void run();
@@ -126,7 +154,13 @@ export function usePrint(): {
     };
   }, [printing, armTeardown]);
 
-  useEffect(() => () => teardown.current?.(), []);
+  useEffect(
+    () => () => {
+      teardown.current?.();
+      restoreTitle();
+    },
+    [],
+  );
 
   const clearFailed = useCallback(() => setPrintFailed(false), []);
 

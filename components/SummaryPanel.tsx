@@ -129,7 +129,7 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
         <button
           type="button"
           className="btn btn-primary mt-4 w-full"
-          onClick={print}
+          onClick={() => print(`Age3_全店報告書_${today}`)}
           disabled={printing}
         >
           {printing ? "準備中…" : "全店PDF報告書を作る"}
@@ -433,7 +433,12 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
       <PrintPortal preview={preview}>
         <AllStoresReport all={data.inspections} issuedOn={today} />
       </PrintPortal>
-      {preview && <PreviewBar onPrint={print} onClose={() => setPreview(false)} />}
+      {preview && (
+        <PreviewBar
+          onPrint={() => print(`Age3_全店報告書_${today}`)}
+          onClose={() => setPreview(false)}
+        />
+      )}
     </div>
   );
 }
