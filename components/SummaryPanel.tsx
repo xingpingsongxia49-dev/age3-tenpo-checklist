@@ -7,6 +7,7 @@ import { Bar, Card, JUDGEMENT_COLOR, Notice } from "./ui";
 import { STORES } from "@/lib/checklist";
 import {
   collectCorrections,
+  compareCategories,
   hasAnswers,
   itemsForStore,
   pct,
@@ -22,6 +23,14 @@ import { usePrint } from "@/lib/usePrint";
 import { PrintPortal } from "./PrintPortal";
 import { PreviewBar } from "./PreviewBar";
 import type { StoreName } from "@/lib/types";
+
+/** 達成率を3段階に振り分ける。色だけに頼らないよう、セルには数字と横棒も出す */
+function heatClass(rate: number | null) {
+  if (rate === null) return "is-none";
+  if (rate >= 0.8) return "is-ok";
+  if (rate >= 0.6) return "is-mid";
+  return "is-ng";
+}
 
 const STATUS_INK: Record<Correction["status"], string> = {
   期限切れ: "var(--color-ng)",
@@ -105,6 +114,10 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
   );
 
   const rows = picks.map((p) => ({ ...p, s: p.insp ? summarize(p.insp) : null }));
+
+  // カテゴリ別の比較。2店以上そろっていないと比較にならないので、そのときだけ出す
+  const cats = compareCategories(picks);
+  const comparable = picks.filter((p) => p.insp).length >= 2;
 
   return (
     <div className="space-y-4">
@@ -220,6 +233,52 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
           </div>
         )}
       </Card>
+
+      {/* カテゴリ別の比較。どこが弱いかを一目で見る */}
+      {comparable && (
+        <Card>
+          <h2 className="text-[16px] font-bold">カテゴリ別 3店比較</h2>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-sub)]">
+            緑=80%以上／黄=60〜79%／赤=60%未満。
+            <span className="font-bold">3店とも赤いカテゴリは本部の基準の問題</span>、
+            <span className="font-bold">1店だけ赤いカテゴリはその店のやり方の問題</span>。
+          </p>
+
+          <table className="cmp mt-3">
+            <thead>
+              <tr>
+                <th>カテゴリ</th>
+                {picks.map(({ store }) => (
+                  <th key={store}>{store}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {cats.map(({ category, cells }) => (
+                <tr key={category}>
+                  <td>{category}</td>
+                  {cells.map(({ store, rate }) => (
+                    <td key={store}>
+                      <span className={`cmp-cell ${heatClass(rate)}`}>
+                        <span className="cmp-v">{pct(rate)}</span>
+                        <span className="cmp-bar">
+                          <span style={{ width: `${Math.round((rate ?? 0) * 100)}%` }} />
+                        </span>
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-sub)]">
+            3店の平均は出していません。平均にすると悪い店が良い店に隠れて、
+            どこを直すのかが分からなくなるためです。
+            項目ごとの食い違い（どの店だけができていないか）は全店PDFに載ります。
+          </p>
+        </Card>
+      )}
 
       {/* 是正管理台帳 */}
       <Card>

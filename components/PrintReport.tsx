@@ -14,6 +14,8 @@ import {
   answerOf,
   batsuStreak,
   collectCorrections,
+  compareCategories,
+  compareItems,
   compareJudgement,
   dueSummary,
   findPrevious,
@@ -26,8 +28,7 @@ import {
   VERDICT_LABEL,
   type Summary,
 } from "@/lib/score";
-import { CATEGORIES, STORES } from "@/lib/checklist";
-import type { Answer, ChecklistItem, Inspection, StoreName } from "@/lib/types";
+import type { Answer, ChecklistItem, Inspection, Judgement, StoreName } from "@/lib/types";
 
 const INK = { ok: "#2F6B46", mid: "#8A6D22", ng: "#A33A2E", na: "#8A7A6D" };
 
@@ -39,6 +40,19 @@ const INK = { ok: "#2F6B46", mid: "#8A6D22", ng: "#A33A2E", na: "#8A7A6D" };
 const MAX_ISSUE_ROWS = 20;
 const MAX_LEDGER_ROWS = 16;
 const MAX_HISTORY_ROWS = 8;
+const MAX_COMPARE_ROWS = 18;
+
+/** 達成率を3段階の帯に振り分ける。色だけに頼らないよう、セルには数字と横棒も出す */
+function heatClass(rate: number | null) {
+  if (rate === null) return "is-none";
+  if (rate >= 0.8) return "is-ok";
+  if (rate >= 0.6) return "is-mid";
+  return "is-ng";
+}
+
+function judgeClass(j: Judgement | null) {
+  return j === "×" ? "is-ng" : j === "△" ? "is-mid" : j === "○" ? "is-ok" : "is-none";
+}
 
 function verdictInk(v: Summary["verdict"]) {
   return v === "green" ? INK.ok : v === "yellow" ? INK.mid : v === "red" ? INK.ng : INK.na;
@@ -593,34 +607,60 @@ export function AllStoresReport({
   const historyRows = history.slice(0, MAX_HISTORY_ROWS);
 
   const missing = latest.filter((l) => !l.insp).map((l) => l.store);
-  const scored = latest.filter((l) => l.s?.weightedRate != null);
-  const avg =
-    scored.length > 0
-      ? scored.reduce((n, l) => n + (l.s!.weightedRate ?? 0), 0) / scored.length
-      : null;
   const totalCritical = latest.reduce((n, l) => n + (l.s?.criticalBatsu ?? 0), 0);
+
+  // 3店平均は出さない。平均にすると悪い店が良い店に隠れて、どこを直すのか分からなくなる
+  const cats = compareCategories(picks);
+  const items = compareItems(picks);
+  const company = items.filter((r) => r.scope === "全社");
+  const single = items.filter((r) => r.scope !== "全社");
+  const compareRows = [...company, ...single].slice(0, MAX_COMPARE_ROWS);
+  const compareOmitted = items.length - compareRows.length;
 
   return (
     <div className="pr-doc pr-sheet">
       <Head title="全店 店舗チェック報告書" meta="銀座・原宿・浅草" issuedOn={issuedOn} />
 
+      {/* 各店を同じ大きさで並べる。平均は置かない（どの店を直すのかが消えるため） */}
+      <div className="pr-store-row">
+        {latest.map(({ store, insp, s }) => (
+          <div
+            key={store}
+            className="pr-store-cell"
+            style={{ borderColor: s ? verdictInk(s.verdict) : undefined }}
+          >
+            <span className="pr-store-name">{store}</span>
+            <span className="pr-store-date">{insp ? `${insp.date} 視察` : "視察記録なし"}</span>
+            <span
+              className="pr-store-score"
+              style={{ color: s ? verdictInk(s.verdict) : undefined }}
+            >
+              {s && s.weightedRate !== null ? pct(s.weightedRate) : "未実施"}
+            </span>
+            <span
+              className="pr-store-verdict"
+              style={{ color: s ? verdictInk(s.verdict) : undefined }}
+            >
+              {s ? VERDICT_LABEL[s.verdict] : "—"}
+            </span>
+            <span className="pr-store-counts">
+              {s ? (
+                <>
+                  ○{s.maru}　△{s.sankaku}　×{s.batsu}
+                  {s.criticalBatsu > 0 && (
+                    <b style={{ color: INK.ng }}>　S項目×{s.criticalBatsu}</b>
+                  )}
+                </>
+              ) : (
+                "—"
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+
       <div className="pr-summary">
-        <div className="pr-score-main">
-          <span className="pr-label">3店平均（加重達成率）</span>
-          <span className="pr-score-value" style={{ color: verdictInk(avg === null ? "none" : avg >= 0.8 ? "green" : avg >= 0.6 ? "yellow" : "red") }}>
-            {pct(avg)}
-          </span>
-          <span className="pr-note">下の3店の単純平均</span>
-        </div>
-        <div className="pr-kpi-grid">
-          {latest.map(({ store, insp, s }) => (
-            <Kpi
-              key={store}
-              label={`${store}${insp ? `　${insp.date.slice(5).replace("-", "/")}` : ""}`}
-              value={s && s.weightedRate !== null ? pct(s.weightedRate) : "未実施"}
-              ink={s ? verdictInk(s.verdict) : undefined}
-            />
-          ))}
+        <div className="pr-kpi-grid is-wide">
           <Kpi
             label="S項目の×（全店）"
             value={`${totalCritical}`}
@@ -712,54 +752,116 @@ export function AllStoresReport({
 
       <section className="pr-keep">
       <h2 className="pr-h2">2. カテゴリ別 3店比較（加重達成率）</h2>
-      <table className="pr-table pr-cat">
+      <table className="pr-table pr-heat">
         <thead>
           <tr>
             <th className="w-cat">カテゴリ</th>
             {latest.map(({ store }) => (
-              <th key={store} className="w-rate">
+              <th key={store} className="w-heat">
                 {store}
               </th>
             ))}
-            <th className="w-rate">3店平均</th>
-            <th className="w-bar3">達成度（銀座／原宿／浅草）</th>
+            <th className="w-gap">開き</th>
           </tr>
         </thead>
         <tbody>
-          {CATEGORIES.map((cat) => {
-            const rates = latest.map(
-              ({ s }) => s?.categories.find((x) => x.category === cat)?.rate ?? null,
-            );
-            const valid = rates.filter((r): r is number => r !== null);
-            const catAvg = valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
-            return (
-              <tr key={cat}>
-                <td className="w-cat">{cat}</td>
-                {rates.map((r, i) => (
-                  <td
-                    key={i}
-                    className="w-rate"
-                    style={{ color: r !== null && r < 0.6 ? INK.ng : undefined }}
-                  >
-                    {pct(r)}
-                  </td>
-                ))}
-                <td className="w-rate pr-strong">{pct(catAvg)}</td>
-                <td className="w-bar3">
-                  {rates.map((r, i) => (
-                    <RowBar key={i} rate={r} />
-                  ))}
+          {cats.map(({ category, cells, spread }) => (
+            <tr key={category}>
+              <td className="w-cat">{category}</td>
+              {cells.map(({ store, rate }) => (
+                <td key={store} className={`w-heat ${heatClass(rate)}`}>
+                  <span className="pr-heat-v">{pct(rate)}</span>
+                  <span className="pr-heat-bar">
+                    <span style={{ width: `${Math.round((rate ?? 0) * 100)}%` }} />
+                  </span>
                 </td>
-              </tr>
-            );
-          })}
+              ))}
+              <td
+                className="w-gap"
+                style={{
+                  color: spread !== null && spread >= 0.2 ? INK.ng : undefined,
+                  fontWeight: spread !== null && spread >= 0.2 ? 700 : undefined,
+                }}
+              >
+                {spread === null ? "—" : `${Math.round(spread * 100)}pt`}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
+      <p className="pr-foot-note">
+        色の濃さと横棒の長さが達成率。
+        <b>80%以上＝緑／60〜79%＝黄／60%未満＝赤</b>。
+        「開き」は3店の最大と最小の差で、<b>20pt以上は赤</b>。
+        開きが大きいカテゴリは<b>店ごとのやり方の差</b>、
+        3店とも低いカテゴリは<b>本部の基準づくりの問題</b>。3店平均は出していない
+        （平均にすると悪い店が良い店に隠れ、どこを直すのかが分からなくなるため）。
+      </p>
       </section>
 
-      <section className="pr-keep">
+      <section>
       <h2 className="pr-h2">
-        3. 是正管理台帳（未完了 {allCorrections.length}件
+        3. 項目別 3店比較（できていない項目 {items.length}件
+        {compareOmitted > 0 ? `　※重要な${compareRows.length}件を掲載` : ""}）
+      </h2>
+      {compareRows.length === 0 ? (
+        <p className="pr-empty">3店に共通する項目で、×・△のものはありません。</p>
+      ) : (
+        <table className="pr-table pr-vs">
+          <thead>
+            <tr>
+              <th className="w-w">重要度</th>
+              <th className="w-cat2">カテゴリ</th>
+              <th>項目</th>
+              {latest.map(({ store }) => (
+                <th key={store} className="w-j">
+                  {store}
+                </th>
+              ))}
+              <th className="w-scope">見立て</th>
+            </tr>
+          </thead>
+          <tbody>
+            {compareRows.map(({ item, cells, scope }) => (
+              <tr key={item.id}>
+                <td className="w-w" style={{ color: item.weight === "S" ? INK.ng : undefined }}>
+                  {item.weight}
+                </td>
+                <td className="w-cat2">{item.category}</td>
+                <td>
+                  <span className="pr-item-text">{item.text}</span>
+                </td>
+                {latest.map(({ store }) => {
+                  const j = cells.find((c) => c.store === store)?.judgement ?? null;
+                  return (
+                    <td key={store} className={`w-j ${judgeClass(j)}`}>
+                      {j ?? "—"}
+                    </td>
+                  );
+                })}
+                <td
+                  className="w-scope pr-strong"
+                  style={{ color: scope === "全社" ? INK.ng : undefined }}
+                >
+                  {scope === "全社" ? "全社" : `${scope}だけ`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="pr-foot-note">
+        判定が割れた項目と、3店ともできていない項目を上から並べている。
+        <b>「全社」＝2店以上でできていない</b>ので、直すのは本部（基準・手順・教育）。
+        <b>「◯◯だけ」＝1店だけ</b>なので、直すのはその店（実行）。
+        比較できるのは<b>3店に共通する項目だけ</b>で、店舗別の追加項目は載せていない。
+        {compareOmitted > 0 && `　ほか${compareOmitted}件は本紙に載せていません。`}
+      </p>
+      </section>
+
+      <section>
+      <h2 className="pr-h2">
+        4. 是正管理台帳（未完了 {allCorrections.length}件
         {omitted > 0 ? `　※${corrections.length}件を掲載` : ""}）
       </h2>
       {allCorrections.length === 0 ? (
@@ -811,9 +913,9 @@ export function AllStoresReport({
       )}
       </section>
 
-      <section className="pr-keep">
+      <section>
       <h2 className="pr-h2">
-        4. 視察履歴（{history.length}件
+        5. 視察履歴（{history.length}件
         {history.length > historyRows.length ? `　※直近${historyRows.length}件を掲載` : ""}）
       </h2>
       <table className="pr-table pr-cat">

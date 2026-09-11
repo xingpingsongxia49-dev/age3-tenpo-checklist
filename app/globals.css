@@ -144,6 +144,77 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- カテゴリ別 3店比較（画面）----
+   どこが弱いかを一目で見るための表。色だけに頼らず、
+   どのセルにも達成率の数字と横棒を入れる。 */
+.cmp {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.cmp th {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-sub);
+  padding: 0 2px 4px;
+  text-align: center;
+}
+
+.cmp th:first-child {
+  text-align: left;
+  width: 44%;
+}
+
+.cmp td {
+  padding: 2px;
+  vertical-align: middle;
+}
+
+.cmp td:first-child {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--color-brown);
+  padding-right: 6px;
+}
+
+.cmp-cell {
+  display: block;
+  border-radius: 6px;
+  padding: 3px 2px 4px;
+  text-align: center;
+}
+
+.cmp-v {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.cmp-bar {
+  display: block;
+  height: 3px;
+  margin: 3px 4px 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.09);
+  overflow: hidden;
+}
+
+.cmp-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.cmp-cell.is-ok { background: var(--color-ok-bg); color: var(--color-ok); }
+.cmp-cell.is-mid { background: var(--color-mid-bg); color: var(--color-mid); }
+.cmp-cell.is-ng { background: var(--color-ng-bg); color: var(--color-ng); }
+.cmp-cell.is-none { background: var(--color-na-bg); color: var(--color-sub); }
+
+
 /* ==================================================================
  * 報告書（A4・最大2枚）。画面には出さず、印刷＝PDF保存のときだけ表示する。
  * ブラウザの「PDFとして保存」を使うので文字が選択でき、
@@ -416,11 +487,62 @@ textarea {
   text-align: center;
 }
 
+/* ---- 各店のスコアを横に並べる（3店平均は出さない） ----
+   平均を大きく出すと、悪い店が良い店に隠れて「どこを直すのか」が消える。
+   同じ大きさの枠を3つ並べ、店ごとの数字を同じ重さで見せる。 */
+.pr-store-row {
+  display: flex;
+  gap: 3mm;
+  margin-bottom: 2.4mm;
+}
+
+.pr-store-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1.2pt solid #3e2c23;
+  border-radius: 2mm;
+  padding: 1.6mm 2mm 1.8mm;
+}
+
+.pr-store-name {
+  font-size: 11pt;
+  font-weight: 700;
+}
+
+.pr-store-date {
+  font-size: 7.2pt;
+  color: #666;
+}
+
+.pr-store-score {
+  font-size: 26pt;
+  font-weight: 700;
+  line-height: 1.05;
+  margin-top: 0.4mm;
+}
+
+.pr-store-verdict {
+  font-size: 9.5pt;
+  font-weight: 700;
+}
+
+.pr-store-counts {
+  font-size: 7.6pt;
+  color: #444;
+  margin-top: 0.6mm;
+}
+
 .pr-kpi-grid {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1.6mm;
+}
+
+.pr-kpi-grid.is-wide {
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .pr-kpi-cell {
@@ -538,11 +660,14 @@ textarea {
 
 /* 列幅 */
 .w-cat { width: 33mm; }
-.w-cat2 { width: 19mm; }
+.w-cat2 { width: 25mm; }
 .w-num { width: 7.5mm; text-align: center !important; }
 .w-rate { width: 12.5mm; text-align: right !important; white-space: nowrap; }
 .w-bar { width: 23mm; }
 .w-bar3 { width: 32mm; }
+.w-heat { width: 21mm; }
+.w-gap { width: 12mm; text-align: center !important; white-space: nowrap; }
+.w-scope { width: 16mm; text-align: center !important; white-space: nowrap; }
 .w-j { width: 7mm; text-align: center !important; }
 .w-w { width: 10mm; text-align: center !important; font-weight: 700; }
 .w-own { width: 12mm; }
@@ -551,6 +676,57 @@ textarea {
 .w-store { width: 12mm; }
 .w-verdict { width: 18mm; white-space: nowrap; }
 .w-read { width: 42mm; }
+
+/* ---- カテゴリ別ヒートマップ ----
+   色だけで読ませない。どのセルにも「数字」と「横棒」を入れてあるので、
+   色が飛んだ印刷でも、白黒でコピーされても達成率が読める。 */
+.pr-heat td.w-heat {
+  text-align: center !important;
+  padding: 0.8mm 1mm;
+}
+
+.pr-heat-v {
+  display: block;
+  font-size: 8pt;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.pr-heat-bar {
+  display: block;
+  height: 1.3mm;
+  margin-top: 0.6mm;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.pr-heat-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.pr-heat .is-ok { background: #e6f0e8; color: #2f6b46; }
+.pr-heat .is-mid { background: #f6eedd; color: #8a6d22; }
+.pr-heat .is-ng { background: #f7e2df; color: #a33a2e; }
+.pr-heat .is-none { background: #f2efec; color: #8a7a6d; }
+
+/* 判定を横に並べる表。○△×は色と記号の両方で分かるようにする */
+.pr-vs td.w-j {
+  font-weight: 700;
+  font-size: 9.5pt;
+}
+
+.pr-vs .is-ok { background: #e6f0e8; color: #2f6b46; }
+.pr-vs .is-mid { background: #f6eedd; color: #8a6d22; }
+.pr-vs .is-ng { background: #f7e2df; color: #a33a2e; }
+.pr-vs .is-none { background: #f2efec; color: #8a7a6d; }
+
+.pr-vs tbody tr:nth-child(even) td.w-j.is-ok { background: #e0ece3; }
+.pr-vs tbody tr:nth-child(even) td.w-j.is-mid { background: #f1e8d5; }
+.pr-vs tbody tr:nth-child(even) td.w-j.is-ng { background: #f3dbd7; }
 
 .pr-bar {
   height: 1.9mm;

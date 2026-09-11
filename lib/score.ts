@@ -187,6 +187,101 @@ export function summarize(inspection: Inspection): Summary {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* 店舗の比較                                                          */
+/* ------------------------------------------------------------------ */
+
+/** 比べる視察。店ごとに視察日が違うので、店舗と視察を組にして持ち回る */
+export type StorePick = { store: StoreName; insp?: Inspection };
+
+export type CategoryCompare = {
+  category: CategoryName;
+  cells: { store: StoreName; rate: number | null }[];
+  /** いちばん高い店といちばん低い店の開き（0-1）。2店以上そろったときだけ */
+  spread: number | null;
+};
+
+/**
+ * カテゴリ×店舗の比較。平均は出さない。
+ * 3店の平均を見ても「どの店を直すのか」が分からず、悪い店が良い店に隠れるため、
+ * 各店の数字と「開き」（最大−最小）だけを出す。
+ */
+export function compareCategories(picks: StorePick[]): CategoryCompare[] {
+  const byStore = picks.map(({ store, insp }) => ({
+    store,
+    cats: insp ? summarize(insp).categories : null,
+  }));
+
+  return CATEGORIES.map((category) => {
+    const cells = byStore.map(({ store, cats }) => ({
+      store,
+      rate: cats?.find((c) => c.category === category)?.rate ?? null,
+    }));
+    const values = cells.map((c) => c.rate).filter((r): r is number => r !== null);
+    return {
+      category,
+      cells,
+      spread: values.length >= 2 ? Math.max(...values) - Math.min(...values) : null,
+    };
+  });
+}
+
+export type ItemCompare = {
+  item: ChecklistItem;
+  cells: { store: StoreName; judgement: Judgement | null }[];
+  /** ×の店数 */
+  batsu: number;
+  /** ×か△の店数 */
+  weak: number;
+  /** できていない店が2店以上なら全社の課題、1店だけならその店の課題 */
+  scope: "全社" | StoreName;
+};
+
+/**
+ * 項目×店舗の比較。3店に共通する項目だけを見る。
+ *
+ * 店舗別の追加項目（銀座だけの項目など）は横に並べても比較にならないので外す。
+ * 「2店以上でできていない＝本部が仕組みを直す」「1店だけ＝その店が実行する」を
+ * 分けたいので、できていない店数を数えて scope に入れる。
+ */
+export function compareItems(picks: StorePick[]): ItemCompare[] {
+  const withData = picks.filter((p) => p.insp);
+  if (withData.length < 2) return [];
+
+  // 3店（データのある店すべて）に共通する項目だけ
+  const common = withData
+    .map(({ store }) => new Set(itemsForStore(store).map((i) => i.id)))
+    .reduce((acc, ids) => new Set([...acc].filter((id) => ids.has(id))));
+
+  const weightRank = { S: 0, A: 1, B: 2 } as const;
+
+  return CHECKLIST.filter((item) => common.has(item.id))
+    .map((item) => {
+      const cells = withData.map(({ store, insp }) => ({
+        store,
+        judgement: insp!.answers[item.id]?.judgement ?? null,
+      }));
+      const batsu = cells.filter((c) => c.judgement === "×").length;
+      const weak = cells.filter((c) => c.judgement === "×" || c.judgement === "△").length;
+      const only = cells.find((c) => c.judgement === "×" || c.judgement === "△");
+      return {
+        item,
+        cells,
+        batsu,
+        weak,
+        scope: (weak >= 2 ? "全社" : (only?.store ?? "全社")) as ItemCompare["scope"],
+      };
+    })
+    .filter((r) => r.weak > 0)
+    .sort(
+      (a, b) =>
+        b.weak - a.weak ||
+        b.batsu - a.batsu ||
+        weightRank[a.item.weight] - weightRank[b.item.weight] ||
+        a.item.id - b.item.id,
+    );
+}
+
 export function pct(rate: number | null, digits = 0): string {
   if (rate === null) return "—";
   return `${(rate * 100).toFixed(digits)}%`;
