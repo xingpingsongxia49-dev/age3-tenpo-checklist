@@ -27,7 +27,7 @@ import {
   type Summary,
 } from "@/lib/score";
 import { CATEGORIES, STORES } from "@/lib/checklist";
-import type { Answer, ChecklistItem, Inspection } from "@/lib/types";
+import type { Answer, ChecklistItem, Inspection, StoreName } from "@/lib/types";
 
 const INK = { ok: "#2F6B46", mid: "#8A6D22", ng: "#A33A2E", na: "#8A7A6D" };
 
@@ -560,25 +560,26 @@ export function StoreReport({
 /* ------------------------------------------------------------------ */
 
 /**
- * 全店比較。`on` に選んだ視察日の3店を横に並べる。
- * 3店を1日で回るので、日付＝1回の視察にあたる。その日に視察していない店は「未実施」。
- * `issuedOn` は出力日で、是正の期限切れ判定にも使う（選んだ日ではなく今日で数える）。
+ * 全店比較。比べる視察は店舗ごとに選ぶ（`picks`）。
+ *
+ * 3店を同じ日には回れないので、視察日は店ごとに違う。そのため、どの回を並べたのかが
+ * 帳票だけで分かるように、各店の視察日を表にも見出しの下にも必ず出す。
+ * `issuedOn` は出力日で、是正の期限切れ判定にも使う（視察日ではなく今日で数える）。
  */
 export function AllStoresReport({
   all,
-  on,
+  picks,
   issuedOn,
 }: {
   all: Inspection[];
-  on: string;
+  picks: { store: StoreName; insp?: Inspection }[];
   issuedOn: string;
 }) {
-  const latest = STORES.map((store) => {
-    const insp = all
-      .filter((i) => i.store === store && i.date === on)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-    return { store, insp, s: insp ? summarize(insp) : null };
-  });
+  const latest = picks.map(({ store, insp }) => ({
+    store,
+    insp,
+    s: insp ? summarize(insp) : null,
+  }));
 
   const allCorrections = collectCorrections(all, issuedOn).filter((c) => c.status !== "完了");
   const corrections = allCorrections.slice(0, MAX_LEDGER_ROWS);
@@ -601,7 +602,7 @@ export function AllStoresReport({
 
   return (
     <div className="pr-doc pr-sheet">
-      <Head title="全店 店舗チェック報告書" meta={`銀座・原宿・浅草　視察日 ${on}`} issuedOn={issuedOn} />
+      <Head title="全店 店舗チェック報告書" meta="銀座・原宿・浅草" issuedOn={issuedOn} />
 
       <div className="pr-summary">
         <div className="pr-score-main">
@@ -609,13 +610,13 @@ export function AllStoresReport({
           <span className="pr-score-value" style={{ color: verdictInk(avg === null ? "none" : avg >= 0.8 ? "green" : avg >= 0.6 ? "yellow" : "red") }}>
             {pct(avg)}
           </span>
-          <span className="pr-note">{on} に視察した店の単純平均</span>
+          <span className="pr-note">下の3店の単純平均</span>
         </div>
         <div className="pr-kpi-grid">
-          {latest.map(({ store, s }) => (
+          {latest.map(({ store, insp, s }) => (
             <Kpi
               key={store}
-              label={`${store}`}
+              label={`${store}${insp ? `　${insp.date.slice(5).replace("-", "/")}` : ""}`}
               value={s && s.weightedRate !== null ? pct(s.weightedRate) : "未実施"}
               ink={s ? verdictInk(s.verdict) : undefined}
             />
@@ -659,7 +660,7 @@ export function AllStoresReport({
       </div>
 
       <section className="pr-keep">
-      <h2 className="pr-h2">1. 3店舗比較（{on} の視察）</h2>
+      <h2 className="pr-h2">1. 3店舗比較（各店の選んだ回）</h2>
       <table className="pr-table">
         <thead>
           <tr>
@@ -704,12 +705,13 @@ export function AllStoresReport({
       <p className="pr-foot-note">
         3店を同じ基準で並べることで、「1店だけの問題」か「全社の問題」かを判別する。
         全店で同じカテゴリが低い場合、原因は現場ではなく本部の基準づくりにある。
-        {missing.length > 0 && `　※${missing.join("・")}は${on}に視察していないため「未実施」。`}
+        3店を同じ日には回れないため、視察日は店ごとに違う（上の表の「視察日」を参照）。
+        {missing.length > 0 && `　※${missing.join("・")}は視察の記録が無いため「未実施」。`}
       </p>
       </section>
 
       <section className="pr-keep">
-      <h2 className="pr-h2">2. カテゴリ別 3店比較（加重達成率／{on}）</h2>
+      <h2 className="pr-h2">2. カテゴリ別 3店比較（加重達成率）</h2>
       <table className="pr-table pr-cat">
         <thead>
           <tr>

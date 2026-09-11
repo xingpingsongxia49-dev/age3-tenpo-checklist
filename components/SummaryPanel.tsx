@@ -17,7 +17,7 @@ import {
 import { correctionsCsv, download, historyCsv } from "@/lib/export";
 import { todayISO, useStore } from "@/lib/store";
 import { AllStoresReport } from "./PrintReport";
-import { useDateParam, useDocumentTitle } from "@/lib/hooks";
+import { useComparePicks, useDocumentTitle } from "@/lib/hooks";
 import { usePrint } from "@/lib/usePrint";
 import { PrintPortal } from "./PrintPortal";
 import { PreviewBar } from "./PreviewBar";
@@ -45,25 +45,42 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
   const { printing, printFailed, print, clearFailed } = usePrint();
   const [preview, setPreview] = useState(false);
   const today = todayISO();
-  const [pickedDate, setPickedDate] = useDateParam();
+  const [picked, setPicked] = useComparePicks();
 
   /**
-   * 並べ直せる視察日。3店を1日で回るので、日付＝1回の視察にあたる。
-   * 中身のある視察がある日だけを出し、今日は（まだ空でも）必ず先頭に置く。
+   * 比べる視察を店舗ごとに選ぶ。
+   *
+   * 3店を同じ日には回れないので、日付をひとつ選ぶ形だと比較資料にならない。
+   * 店舗ごとに「どの回と比べるか」を選び、視察日は各行と帳票に明記する。
+   * 既定は各店の直近（中身のある視察のうち、いちばん新しいもの）。
    */
-  const dates = useMemo(() => {
-    const withData = data.inspections.filter(hasAnswers).map((i) => i.date);
-    return [...new Set([today, ...withData])].sort((a, b) => b.localeCompare(a));
-  }, [data.inspections, today]);
+  const picks = useMemo(
+    () =>
+      STORES.map((store) => {
+        const history = data.inspections
+          .filter((i) => i.store === store)
+          .sort(
+            (a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt),
+          );
+        const chosen = history.find((i) => picked.includes(i.id));
+        const insp = chosen ?? history.find(hasAnswers);
+        return { store, history, insp, total: itemsForStore(store).length };
+      }),
+    [data.inspections, picked],
+  );
 
-  // 既定は「今日」。今日まだ何も入力していない日は、直近の視察日を開く
-  const fallback = dates.find((d) => d !== today) ?? today;
-  const hasToday = data.inspections.some((i) => i.date === today && hasAnswers(i));
-  const date = pickedDate && dates.includes(pickedDate) ? pickedDate : hasToday ? today : fallback;
-  const isToday = date === today;
+  /** ある店の選択を差し替える。ほかの店の選択はそのまま残す */
+  const choose = (store: StoreName, id: string) => {
+    const others = picks
+      .filter((p) => p.store !== store)
+      .map((p) => p.insp?.id)
+      .filter((v): v is string => !!v);
+    setPicked([...others, id]);
+  };
 
-  // PDFの保存名になるので、画面を開いた時点で入れておく
-  const docTitle = `全店　店舗チェック ${date}`;
+  // PDFの保存名になるので、画面を開いた時点で入れておく。
+  // 店ごとに視察日が違うので、名前に入れるのは出力日
+  const docTitle = `全店　店舗チェック ${today}`;
   useDocumentTitle(docTitle);
 
   if (!ready) {
@@ -87,60 +104,58 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
     (c) => showDone || c.status !== "完了",
   );
 
-  const todays = STORES.map((store) => {
-    const insp = data.inspections
-      .filter((i) => i.store === store && i.date === date)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-    return { store, insp, s: insp ? summarize(insp) : null, total: itemsForStore(store).length };
-  });
+  const rows = picks.map((p) => ({ ...p, s: p.insp ? summarize(p.insp) : null }));
 
   return (
     <div className="space-y-4">
       {/* 全店舗の進捗一覧 */}
       <Card>
-        <h2 className="text-[16px] font-bold">{isToday ? "今日の3店舗" : `${date} の3店舗`}</h2>
+        <h2 className="text-[16px] font-bold">3店舗比較</h2>
         <p className="mt-0.5 text-[12px] text-[var(--color-sub)]">
           3店を同じ基準で並べると、「原宿だけの問題」か「全社の問題」かが判別できる。
+          3店を同じ日には回れないので、比べる回は店舗ごとに選ぶ。
         </p>
 
-        {/* どの視察日で並べるか。3店を1日で回るので、日付＝1回の視察にあたる */}
-        <div className="mt-3 flex items-center gap-2">
-          <span className="shrink-0 text-[12px] text-[var(--color-sub)]">視察日</span>
-          <select
-            value={date}
-            onChange={(e) => setPickedDate(e.target.value === today ? null : e.target.value)}
-            aria-label="比較する視察日"
-            className="chip min-h-[40px] flex-1 px-3 text-[14px]"
-          >
-            {dates.map((d) => {
-              const done = STORES.filter((store) =>
-                data.inspections.some(
-                  (i) => i.store === store && i.date === d && hasAnswers(i),
-                ),
-              );
-              return (
-                <option key={d} value={d}>
-                  {d}
-                  {d === today ? "（今日）" : ""}／
-                  {done.length > 0 ? done.join("・") : "未着手"}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-
-        <ul className="mt-3 space-y-3">
-          {todays.map(({ store, s, total }) => {
+        <ul className="mt-3 space-y-4">
+          {rows.map(({ store, s, total, history, insp }) => {
             const done = s ? s.total - s.unanswered : 0;
             return (
               <li key={store}>
+                {/* 店舗ごとに、どの回と比べるかを選ぶ */}
+                <div className="flex items-center gap-2">
+                  <span className="w-12 shrink-0 text-[15px] font-bold">{store}</span>
+                  {history.length > 0 ? (
+                    <select
+                      value={insp?.id ?? ""}
+                      onChange={(e) => choose(store, e.target.value)}
+                      aria-label={`${store}の比較する視察`}
+                      className="chip min-h-[40px] flex-1 px-3 text-[13px]"
+                    >
+                      {history.map((i) => {
+                        const si = summarize(i);
+                        return (
+                          <option key={i.id} value={i.id}>
+                            {i.date}
+                            {i.date === today ? "（今日）" : ""}／{si.total - si.unanswered}/
+                            {si.total}
+                            {si.batsu > 0 ? ` ×${si.batsu}` : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  ) : (
+                    <span className="flex-1 text-[13px] text-[var(--color-sub)]">
+                      視察の記録がまだありません
+                    </span>
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={() => onJump(store)}
-                  className="w-full text-left"
+                  className="mt-2 w-full text-left"
                 >
                   <div className="flex items-baseline gap-2">
-                    <span className="w-12 shrink-0 text-[15px] font-bold">{store}</span>
                     <span className="tabular text-[12px] text-[var(--color-sub)]">
                       {done}/{total}
                     </span>
@@ -478,7 +493,7 @@ export function SummaryPanel({ onJump }: { onJump: (s: StoreName) => void }) {
       {/* 報告書は常に置いておく（画面には出ない）。写真と組版を先に済ませておかないと、
           iOSでは「押したその場で印刷を呼ぶ」ことができない */}
       <PrintPortal preview={preview}>
-        <AllStoresReport all={data.inspections} on={date} issuedOn={today} />
+        <AllStoresReport all={data.inspections} picks={picks} issuedOn={today} />
       </PrintPortal>
       {preview && (
         <PreviewBar

@@ -25,9 +25,9 @@ export function useTabParam(): [Tab, (t: Tab) => void] {
     (t: Tab) => {
       const next = new URLSearchParams(params.toString());
       next.set("store", t);
-      // 店を切り替えたら「開いている視察」「見ている視察日」は持ち越さない
+      // 店を切り替えたら「開いている視察」「比較に選んだ視察」は持ち越さない
       next.delete("id");
-      next.delete("date");
+      next.delete("sel");
       router.replace(`?${next.toString()}`, { scroll: false });
     },
     [params, router],
@@ -60,25 +60,30 @@ export function useInspectionParam(): [string | null, (id: string | null) => voi
 }
 
 /**
- * まとめ（全店比較）で見ている視察日をURLに持たせる。
- * 8月の視察と並べ直したあとに再読み込みしても、その日のままにしておくため。
+ * まとめ（全店比較）で並べている視察をURLに持たせる。
+ *
+ * 3店を同じ日には回れないので、比べる視察は店舗ごとに選ぶ。
+ * 視察のIDをカンマ区切りで持つ（1店につき1件）。IDから店舗が分かるので、
+ * 並び順や店舗名はURLに入れなくてよい。
  */
-export function useDateParam(): [string | null, (date: string | null) => void] {
+export function useComparePicks(): [string[], (ids: string[]) => void] {
   const params = useSearchParams();
   const router = useRouter();
-  const date = params.get("date");
+  const raw = params.get("sel");
 
-  const setDate = useCallback(
-    (next: string | null) => {
+  const picks = useMemo(() => (raw ? raw.split(",").filter(Boolean) : []), [raw]);
+
+  const setPicks = useCallback(
+    (ids: string[]) => {
       const p = new URLSearchParams(params.toString());
-      if (next) p.set("date", next);
-      else p.delete("date");
+      if (ids.length > 0) p.set("sel", ids.join(","));
+      else p.delete("sel");
       router.replace(`?${p.toString()}`, { scroll: false });
     },
     [params, router],
   );
 
-  return [date, setDate];
+  return [picks, setPicks];
 }
 
 /**
