@@ -139,6 +139,10 @@ export function StoreReport({
 
   const issues = allIssues.slice(0, MAX_ISSUE_ROWS);
   const omitted = allIssues.length - issues.length;
+  // カードは「表の行」に2枚ずつ入れて並べる。表の行なら、どのブラウザでも
+  // 改ページで上下に割られない（下の pr-cards のコメントを参照）
+  const pairs: (typeof issues)[] = [];
+  for (let i = 0; i < issues.length; i += 2) pairs.push(issues.slice(i, i + 2));
 
   // 毎回同じ×が並ぶ項目と、前回×のまま未確認の項目を明示する
   const streaks = new Map(
@@ -449,84 +453,93 @@ export function StoreReport({
       {allIssues.length === 0 ? (
         <p className="pr-empty">×・△の項目はありません。</p>
       ) : (
-        <div className="pr-cards">
-          {issues.map(({ item, a, prevJudgement, worsened }) => {
-            const shots = includePhotos
-              ? a.photos.filter((pid) => urls.has(pid)).map((pid) => urls.get(pid)!)
-              : [];
-            const ink = a.judgement === "×" ? INK.ng : INK.mid;
-            return (
-              <article className={`pr-card${shots.length > 0 ? " is-shot" : ""}`} key={item.id}>
-                {shots.length > 0 ? (
-                  <div className={`pr-card-shots${shots.length > 1 ? " is-multi" : ""}`}>
-                    {shots.slice(0, 2).map((u, i) => (
-                      <span className="pr-card-shot" key={i}>
-                        {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={u} alt="" />
-                      </span>
-                    ))}
-                    {shots.length > 2 && (
-                      <span className="pr-card-more">ほか{shots.length - 2}枚</span>
-                    )}
-                    <span className="pr-card-judge" style={{ background: ink }}>
-                      {a.judgement}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="pr-card-noshot" style={{ borderColor: ink, color: ink }}>
-                    <span className="pr-card-noshot-j">{a.judgement}</span>
-                    <span className="pr-card-noshot-t">写真なし</span>
-                  </div>
-                )}
+        <table className="pr-cards">
+          <tbody>
+            {pairs.map((pair, row) => (
+              <tr key={row}>
+                {pair.map(({ item, a, prevJudgement, worsened }) => {
+                  const shots = includePhotos
+                    ? a.photos.filter((pid) => urls.has(pid)).map((pid) => urls.get(pid)!)
+                    : [];
+                  const ink = a.judgement === "×" ? INK.ng : INK.mid;
+                  return (
+                    <td className="pr-card-cell" key={item.id}>
+                      <article className={`pr-card${shots.length > 0 ? " is-shot" : ""}`}>
+                        {shots.length > 0 ? (
+                          <div className={`pr-card-shots${shots.length > 1 ? " is-multi" : ""}`}>
+                            {shots.slice(0, 2).map((u, i) => (
+                              <span className="pr-card-shot" key={i}>
+                                {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={u} alt="" />
+                              </span>
+                            ))}
+                            {shots.length > 2 && (
+                              <span className="pr-card-more">ほか{shots.length - 2}枚</span>
+                            )}
+                            <span className="pr-card-judge" style={{ background: ink }}>
+                              {a.judgement}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="pr-card-noshot" style={{ borderColor: ink, color: ink }}>
+                            <span className="pr-card-noshot-j">{a.judgement}</span>
+                            <span className="pr-card-noshot-t">写真なし</span>
+                          </div>
+                        )}
 
-                <div className="pr-card-body">
-                  <p className="pr-card-meta">
-                    <span
-                      className="pr-card-w"
-                      style={
-                        item.weight === "S"
-                          ? { background: INK.ng, color: "#fff" }
-                          : undefined
-                      }
-                    >
-                      重要度{item.weight}
-                    </span>
-                    <span className="pr-card-cat">{item.category}</span>
-                  </p>
-                  <p className="pr-card-title">
-                    <span className="pr-card-no">{item.id}.</span>
-                    {item.text}
-                  </p>
-                  {a.note && <p className="pr-card-fact">事実：{a.note}</p>}
-                  <p className="pr-card-fix">
-                    {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
-                    {worsened && <span className="pr-tag is-ng">悪化</span>}
-                    {(streaks.get(item.id) ?? 0) >= 2 && (
-                      <span className="pr-tag is-ng">{streaks.get(item.id)}回連続×</span>
-                    )}
-                    {a.judgement === "×" ? (
-                      <>
-                        担当：
-                        <span className={a.owner ? "pr-strong" : "pr-missing"}>
-                          {a.owner || "未記入"}
-                        </span>
-                        　期限：
-                        <span className={a.due ? "pr-strong" : "pr-missing"}>
-                          {a.due || "未記入"}
-                        </span>
-                        {a.doneAt && <>　完了：{a.doneAt}</>}
-                      </>
-                    ) : (
-                      <span className="pr-card-hint">△は是正担当・期限の記入対象外</span>
-                    )}
-                  </p>
-
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                        <div className="pr-card-body">
+                          <p className="pr-card-meta">
+                            <span
+                              className="pr-card-w"
+                              style={
+                                item.weight === "S"
+                                  ? { background: INK.ng, color: "#fff" }
+                                  : undefined
+                              }
+                            >
+                              重要度{item.weight}
+                            </span>
+                            <span className="pr-card-cat">{item.category}</span>
+                          </p>
+                          <p className="pr-card-title">
+                            <span className="pr-card-no">{item.id}.</span>
+                            {item.text}
+                          </p>
+                          {a.note && <p className="pr-card-fact">事実：{a.note}</p>}
+                          <p className="pr-card-fix">
+                            {prevJudgement && <span className="pr-tag">前回 {prevJudgement}</span>}
+                            {worsened && <span className="pr-tag is-ng">悪化</span>}
+                            {(streaks.get(item.id) ?? 0) >= 2 && (
+                              <span className="pr-tag is-ng">{streaks.get(item.id)}回連続×</span>
+                            )}
+                            {a.judgement === "×" ? (
+                              <>
+                                担当：
+                                <span className={a.owner ? "pr-strong" : "pr-missing"}>
+                                  {a.owner || "未記入"}
+                                </span>
+                                　期限：
+                                <span className={a.due ? "pr-strong" : "pr-missing"}>
+                                  {a.due || "未記入"}
+                                </span>
+                                {a.doneAt && <>　完了：{a.doneAt}</>}
+                              </>
+                            ) : (
+                              <span className="pr-card-hint">△は是正担当・期限の記入対象外</span>
+                            )}
+                          </p>
+                        </div>
+                      </article>
+                    </td>
+                  );
+                })}
+                {/* 1枚しかない行でも、表の列幅を半分に保つための空セル */}
+                {pair.length === 1 && <td className="pr-card-cell" />}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
       {omitted > 0 && (
         <p className="pr-omit">

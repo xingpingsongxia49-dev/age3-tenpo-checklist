@@ -279,6 +279,7 @@ textarea {
   }
 
   /* 行や図が改ページで割れないようにする（改ページ自体は許可する） */
+  .pr-cards tr,
   .pr-table tr,
   .pr-summary,
   .pr-alert,
@@ -679,18 +680,27 @@ textarea {
    A4の刷り面 約276mm から見出しぶんを引き、4段＋段間に収まる高さにする。
    61mm×4段 + 4mm×3 = 256mm。見出し(約10mm)を足しても余裕がある。 */
 /*
- * 要改善カード。2列に並べ、高さは中身なり。
+ * 要改善カード。2枚ずつ「表の行」に入れて並べる。高さは中身なり。
  *
  * 高さを固定すると短いカードの中に大きな空白ができ、長いカードでは文字が切れる。
- * 段組み（columns）は詰まるが、ブラウザによっては改ページでカードが割れる。
- * グリッドなら行と行の間でしか改ページが起きないので、カードは絶対に割れない。
- * align-items: start で、同じ行の背の低いカードが引き伸ばされないようにする。
+ * かといって grid や columns で並べると、Safari は break-inside: avoid を無視して
+ * カードをページ境界で上下に割ってしまう（実機で確認）。
+ * 表の行だけはどのブラウザも割らないので、レイアウトに表を使っている。
  */
 .pr-cards {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  align-items: start;
-  gap: 4mm;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 4mm 0;
+  margin-left: -4mm;
+  margin-right: -4mm;
+}
+
+.pr-card-cell {
+  width: 50%;
+  vertical-align: top;
+  padding: 0 0 4mm;
+  border: 0;
 }
 
 .pr-card {
@@ -844,10 +854,6 @@ textarea {
 
 /* 印刷の刷り面が狭く組まれた端末では、3列だと1枚あたりが小さくなりすぎる */
 @media print and (max-width: 150mm) {
-  .pr-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .pr-kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
