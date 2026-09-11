@@ -283,7 +283,7 @@ textarea {
   .pr-summary,
   .pr-alert,
   .pr-caution,
-  .pr-photo,
+  .pr-card,
   .pr-fixed {
     page-break-inside: avoid;
     break-inside: avoid;
@@ -658,106 +658,6 @@ textarea {
   line-height: 1.5;
 }
 
-/* ---- 写真 ---- */
-
-.pr-photos {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 3.5mm;
-}
-
-/*
- * 写真の大きさは全て同じにする。縦写真・横写真・キャプションの行数に関係なく
- * 枠の高さを固定し、はみ出した分は隠す。写真枠40mm＋キャプション12mm。
- */
-.pr-photo {
-  height: 52mm;
-  overflow: hidden;
-  margin: 0;
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
-
-.pr-photo-frame {
-  position: relative;
-}
-
-.pr-photo img {
-  width: 100%;
-  height: 40mm;
-  object-fit: cover;
-  border: 0.6pt solid #ccc;
-  border-radius: 1.6mm;
-  display: block;
-}
-
-/* 要改善一覧の「写真3・4」から辿れるよう、写真側にも番号を出す */
-.pr-photo-no {
-  position: absolute;
-  left: 1.4mm;
-  top: 1.4mm;
-  background: rgba(62, 44, 35, 0.88);
-  color: #fff;
-  border-radius: 999px;
-  padding: 0 1.8mm;
-  font-size: 7pt;
-  font-weight: 700;
-  line-height: 1.7;
-}
-
-.pr-photo-judge {
-  position: absolute;
-  right: 1.4mm;
-  top: 1.4mm;
-  color: #fff;
-  border-radius: 999px;
-  text-align: center;
-  padding: 0 1.8mm;
-  font-size: 7pt;
-  font-weight: 700;
-  line-height: 1.7;
-  white-space: nowrap;
-}
-
-.pr-photo figcaption {
-  margin-top: 1.2mm;
-}
-
-/* カテゴリ番号と判定。項目名の上に小さく置く */
-.pr-photo-cat {
-  display: block;
-  font-size: 6.8pt;
-  color: #666;
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pr-photo-cap {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 7.2pt;
-  font-weight: 600;
-  color: #333;
-  line-height: 1.35;
-}
-
-.pr-photo-note {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 6.8pt;
-  color: #666;
-  line-height: 1.35;
-  margin-top: 0.5mm;
-}
-
 /* ---- 補足 ---- */
 
 .pr-empty {
@@ -819,7 +719,7 @@ textarea {
 
 .pr-card-shot img {
   width: 100%;
-  height: 30mm;
+  height: 28mm;
   object-fit: cover;
   display: block;
 }
@@ -906,15 +806,19 @@ textarea {
   text-overflow: ellipsis;
 }
 
+/* 項目名は切らない。3行まで置けるようにして、短ければ余白になるだけにする */
 .pr-card-title {
-  font-size: 8.2pt;
+  font-size: 7.9pt;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.35;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* flexの伸縮で潰されないようにする。高さは行数制限だけで決める
+     （max-height を足すと端数で最終行が数px欠ける） */
+  flex: none;
 }
 
 .pr-card-no {
@@ -930,22 +834,21 @@ textarea {
  * 写真付きのカードは本文の余白が狭いので2行、写真なしは3行。
  */
 .pr-card-fact {
-  font-size: 7.4pt;
+  font-size: 7.2pt;
   color: #333;
-  line-height: 1.45;
-  margin-top: 0.9mm;
+  line-height: 1.4;
+  margin-top: 0.8mm;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  max-height: calc(3 * 1.45em);
+  flex: none;
 }
 
 .pr-card.is-shot .pr-card-fact {
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  max-height: calc(2 * 1.45em);
 }
 
 /* 担当・期限とタグを1行にまとめる。行を増やすと写真付きカードで本文が切れる */
@@ -981,8 +884,7 @@ textarea {
 
 /* 印刷の刷り面が狭く組まれた端末では、3列だと1枚あたりが小さくなりすぎる */
 @media print and (max-width: 150mm) {
-  .pr-cards,
-  .pr-photos {
+  .pr-cards {
     grid-template-columns: repeat(2, 1fr);
   }
 

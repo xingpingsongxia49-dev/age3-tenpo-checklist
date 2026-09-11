@@ -36,12 +36,6 @@ const MAX_ISSUE_ROWS = 16;
 const MAX_LEDGER_ROWS = 16;
 const MAX_HISTORY_ROWS = 8;
 
-/**
- * 写真は本編の後ろに別ページで付ける。枚数に応じてページが増える。
- * 印刷が終わらなくなるのを防ぐための上限で、1ページ9枚 × 4ページ分。
- */
-const MAX_PHOTOS = 36;
-
 function verdictInk(v: Summary["verdict"]) {
   return v === "green" ? INK.ok : v === "yellow" ? INK.mid : v === "red" ? INK.ng : INK.na;
 }
@@ -91,38 +85,6 @@ function Kpi({
         {unit && <span className="pr-kpi-unit">{unit}</span>}
       </span>
     </div>
-  );
-}
-
-/** 写真1枚分。枠の大きさはCSSで固定してあり、どの写真も同じ大きさで並ぶ */
-function PhotoCell({
-  url,
-  judgement,
-  category,
-  caption,
-}: {
-  url?: string;
-  judgement: string | null;
-  category: string;
-  caption: string;
-}) {
-  const ink =
-    judgement === "×" ? INK.ng : judgement === "△" ? INK.mid : judgement === "○" ? INK.ok : INK.na;
-  return (
-    <figure className="pr-photo">
-      <div className="pr-photo-frame">
-        {/* 端末内の写真をそのまま印刷するだけなので next/image は使わない */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {url && <img src={url} alt={caption} />}
-        <span className="pr-photo-judge" style={{ background: ink }}>
-          判定 {judgement ?? "未入力"}
-        </span>
-      </div>
-      <figcaption>
-        <span className="pr-photo-cat">{category}</span>
-        <span className="pr-photo-cap">{caption}</span>
-      </figcaption>
-    </figure>
   );
 }
 
@@ -188,39 +150,13 @@ export function StoreReport({
     : [];
   const worsenedCount = allIssues.filter((r) => r.worsened).length;
 
-  // 項目に付いた写真を全部集めて、1ページ目の空きスペースから並べる。
-  // 見る順番は ×（危ない）→ △ → ○ の優先度。同じ判定なら重要度、次に項目番号。
-  const judgeRank: Record<string, number> = { "×": 0, "△": 1, "○": 2, 対象外: 3 };
-  const allPhotos = items
-    .map((item) => ({ item, a: answerOf(inspection, item.id) }))
-    .filter(({ a }) => a.photos.length > 0)
-    .sort(
-      (x, y) =>
-        (judgeRank[x.a.judgement ?? ""] ?? 4) - (judgeRank[y.a.judgement ?? ""] ?? 4) ||
-        weightRank[x.item.weight] - weightRank[y.item.weight] ||
-        x.item.id - y.item.id,
-    )
-    .flatMap(({ item, a }) =>
-      a.photos.map((pid, i) => ({
-        pid,
-        category: item.category,
-        caption: `${item.id}. ${item.text}${a.photos.length > 1 ? `（${i + 1}/${a.photos.length}）` : ""}`,
-        judgement: a.judgement as string | null,
-      })),
-    );
-
-  const gallery = includePhotos ? allPhotos.slice(0, MAX_PHOTOS) : [];
-  const photoOmitted = includePhotos ? allPhotos.length - gallery.length : 0;
-
-  // 要改善カードにも写真を出すので、そのぶんのURLも一緒に読み込む
-  // カードに出るのは1件につき先頭2枚だけなので、読み込むのもそこまで
+  // 写真は要改善カードの中だけに出す（写真だけを並べる節は置かない）。
+  // カードに出るのは1件につき先頭2枚なので、読み込むのもそこまで。
   const issuePhotoIds = includePhotos ? issues.flatMap(({ a }) => a.photos.slice(0, 2)) : [];
 
   // 写真は端末内(IndexedDB)から非同期に読む。全部そろう前に印刷すると
   // 空枠のまま出てしまうので、揃ったことを data-photos-ready で外に伝える。
-  const { urls, ready: photosReady } = usePhotoUrls([
-    ...new Set([...gallery.map((p) => p.pid), ...issuePhotoIds]),
-  ]);
+  const { urls, ready: photosReady } = usePhotoUrls([...new Set(issuePhotoIds)]);
 
   // 視察後まとめ。書かれた欄だけ出す
   const wrapUpRows = (
@@ -236,7 +172,6 @@ export function StoreReport({
   let sec = 1;
   const secCategory = sec++;
   const secWrapUp = wrapUpRows.length > 0 ? sec++ : null;
-  const secPhotos = gallery.length > 0 ? sec++ : null;
   const secPrevious = previous && prevS ? sec++ : null;
   const secIssues = sec++;
 
@@ -401,36 +336,6 @@ export function StoreReport({
             </tbody>
           </table>
         </section>
-      )}
-
-      {/* 現場写真。1ページ目の空きから並べ、入り切らない分は次のページへ続く。
-          どの写真も同じ大きさ（枠の高さをCSSで固定）で、順番は ×→△→○ */}
-      {gallery.length > 0 && (
-        <>
-          <h2 className="pr-h2">
-            {secPhotos}. 現場写真（{gallery.length}枚
-            {photoOmitted > 0 ? `／全${allPhotos.length}枚` : ""}）
-          </h2>
-          <p className="pr-foot-note">
-            各項目に添付した写真。並び順は ×→△→○ の優先度。
-          </p>
-          <div className="pr-photos">
-            {gallery.map(({ pid, category, caption, judgement }) => (
-              <PhotoCell
-                key={pid}
-                url={urls.get(pid)}
-                judgement={judgement}
-                category={category}
-                caption={caption}
-              />
-            ))}
-          </div>
-          {photoOmitted > 0 && (
-            <p className="pr-omit">
-              ほか{photoOmitted}枚はアプリの各項目で確認してください。
-            </p>
-          )}
-        </>
       )}
 
       {/* 前回比較 */}

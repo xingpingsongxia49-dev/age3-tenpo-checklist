@@ -506,7 +506,7 @@ export function StorePanel({ store }: { store: StoreName }) {
           onChange={(e) => setWithPhotos(e.target.checked)}
           className="h-4 w-4"
         />
-        PDFに現場写真を載せる（{photoCount}枚・写真ぶんページが増えます）
+        PDFの要改善カードに写真を載せる（この店舗に{photoCount}枚）
       </label>
 
       {/* iPhoneのLINE内ブラウザやホーム画面アプリでは印刷そのものに対応しておらず、
