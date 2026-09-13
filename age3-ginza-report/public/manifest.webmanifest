@@ -1,0 +1,14 @@
+{
+  "name": "Age.3 銀座店 売上報告",
+  "short_name": "銀座売上",
+  "description": "売上・客数・口コミを、スマホだけで入力してLINEに送る売上報告アプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f3",
+  "theme_color": "#1f2b45",
+  "lang": "ja",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
