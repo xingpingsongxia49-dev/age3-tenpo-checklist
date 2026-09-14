@@ -6,29 +6,99 @@ import { Section } from "@/components/ui";
 import { emptySettings, prettyDate } from "@/lib/calc";
 import {
   adminPins,
+  clearAllExpenses,
   clearAllReports,
   deleteReport,
+  listExpenses,
   listReports,
   loadSettings,
   saveSettings,
   serverInfo,
 } from "@/lib/storage";
-import type { Report, Settings } from "@/lib/types";
+import type { Expense, Report, Settings } from "@/lib/types";
+
+/** 名前や店名の一覧を足し引きする箱。報告者・使用者・店名で同じ形を使う */
+function NameList({
+  items,
+  placeholder,
+  onAdd,
+  onRemove,
+}: {
+  items: string[];
+  placeholder: string;
+  onAdd: (name: string) => void;
+  onRemove: (name: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const name = draft.trim();
+    if (!name || items.includes(name)) return;
+    onAdd(name);
+    setDraft("");
+  };
+  return (
+    <>
+      {items.map((name) => (
+        <div key={name} className="flex items-center gap-2 border-t border-line py-2 first:border-t-0">
+          <span className="flex-1 text-sm font-medium">{name}</span>
+          <button
+            type="button"
+            onClick={() => onRemove(name)}
+            aria-label={`${name}を消す`}
+            className="tap shrink-0 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-ink-soft active:bg-line"
+          >
+            消す
+          </button>
+        </div>
+      ))}
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          value={draft}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          className="field flex-1"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!draft.trim()}
+          className="tap shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white disabled:opacity-30"
+        >
+          ＋ 追加
+        </button>
+      </div>
+    </>
+  );
+}
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>(emptySettings);
   const [reports, setReports] = useState<Report[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [info, setInfo] = useState<{ db: boolean } | null>(null);
   const [pins, setPins] = useState<{ appPasscode: string; adminPasscode: string } | null>(null);
-  const [draft, setDraft] = useState("");
   const [confirmAll, setConfirmAll] = useState(false);
+  const [confirmExpenses, setConfirmExpenses] = useState(false);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
     void (async () => {
-      const [s, r, i] = await Promise.all([loadSettings(), listReports(), serverInfo()]);
+      const [s, r, x, i] = await Promise.all([
+        loadSettings(),
+        listReports(),
+        listExpenses(),
+        serverInfo(),
+      ]);
       setSettings(s);
       setReports(r);
+      setExpenses(x);
       setInfo(i);
     })();
   }, []);
@@ -37,16 +107,6 @@ export default function SettingsPage() {
     setSettings(next);
     void saveSettings(next);
   };
-
-  const addStaff = () => {
-    const name = draft.trim();
-    if (!name || settings.staff.includes(name)) return;
-    update({ ...settings, staff: [...settings.staff, name] });
-    setDraft("");
-  };
-
-  const removeStaff = (name: string) =>
-    update({ ...settings, staff: settings.staff.filter((s) => s !== name) });
 
   return (
     <main className="px-3 pt-4">
@@ -58,47 +118,43 @@ export default function SettingsPage() {
 
       <Section title="報告者の名前" emoji="🧑‍🍳">
         <p className="mb-3 text-xs leading-relaxed text-ink-soft">
-          報告画面のプルダウンに出る名前です。並び順はここで足した順になります。
+          売上報告のプルダウンに出る名前です。
         </p>
-        {settings.staff.map((name) => (
-          <div
-            key={name}
-            className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
-          >
-            <span className="flex-1 text-sm font-medium">{name}</span>
-            <button
-              type="button"
-              onClick={() => removeStaff(name)}
-              aria-label={`${name}を消す`}
-              className="tap shrink-0 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-ink-soft active:bg-line"
-            >
-              消す
-            </button>
-          </div>
-        ))}
-        <div className="mt-2 flex items-center gap-2">
-          <input
-            value={draft}
-            placeholder="名前を足す"
-            aria-label="足す報告者の名前"
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addStaff();
-              }
-            }}
-            className="field flex-1"
-          />
-          <button
-            type="button"
-            onClick={addStaff}
-            disabled={!draft.trim()}
-            className="tap shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white disabled:opacity-30"
-          >
-            ＋ 追加
-          </button>
-        </div>
+        <NameList
+          items={settings.staff}
+          placeholder="名前を足す"
+          onAdd={(n) => update({ ...settings, staff: [...settings.staff, n] })}
+          onRemove={(n) => update({ ...settings, staff: settings.staff.filter((x) => x !== n) })}
+        />
+      </Section>
+
+      <Section title="経費の使用者" emoji="🧾">
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
+          経費の画面でボタンに出る名前です。立て替えることが多い人を並べておきます。
+        </p>
+        <NameList
+          items={settings.expenseUsers}
+          placeholder="名前を足す"
+          onAdd={(n) => update({ ...settings, expenseUsers: [...settings.expenseUsers, n] })}
+          onRemove={(n) =>
+            update({ ...settings, expenseUsers: settings.expenseUsers.filter((x) => x !== n) })
+          }
+        />
+      </Section>
+
+      <Section title="経費のよく使う店" emoji="🏪">
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
+          経費の画面でボタンに出る店名です。ボタンから選べば「セブン」と「セブンイレブン」のように
+          書き方がばらけません。
+        </p>
+        <NameList
+          items={settings.expenseStores}
+          placeholder="店名を足す"
+          onAdd={(n) => update({ ...settings, expenseStores: [...settings.expenseStores, n] })}
+          onRemove={(n) =>
+            update({ ...settings, expenseStores: settings.expenseStores.filter((x) => x !== n) })
+          }
+        />
       </Section>
 
       <Section title="🔑 PIN" emoji="">
@@ -127,7 +183,7 @@ export default function SettingsPage() {
         )}
       </Section>
 
-      <Section title="🗑 データの削除" emoji="">
+      <Section title="🗑 売上報告の削除" emoji="">
         <p className="mb-3 text-xs leading-relaxed text-ink-soft">
           消したデータは戻せません。履歴と分析からも消えます。
         </p>
@@ -196,6 +252,49 @@ export default function SettingsPage() {
             </div>
           </>
         )}
+      </Section>
+
+      <Section title="🧾 経費の削除" emoji="">
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
+          経費は {expenses.length}件あります。1件ずつ消すのは経費の画面からできます。
+        </p>
+        <div className="rounded-xl bg-low-bg p-3">
+          {confirmExpenses ? (
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-xs font-bold leading-tight text-low">
+                {expenses.length}件の経費がすべて消えます
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await clearAllExpenses();
+                  setExpenses(await listExpenses());
+                  setConfirmExpenses(false);
+                  setNotice("経費をすべて消しました");
+                }}
+                className="tap shrink-0 rounded-lg bg-low px-3 py-1.5 text-xs font-bold text-white"
+              >
+                消す
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmExpenses(false)}
+                className="tap shrink-0 rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-bold text-ink-soft"
+              >
+                やめる
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmExpenses(true)}
+              disabled={expenses.length === 0}
+              className="tap w-full text-xs font-bold text-low disabled:opacity-40"
+            >
+              すべての経費を消す
+            </button>
+          )}
+        </div>
       </Section>
 
       <Section title="保存先" emoji="💾">

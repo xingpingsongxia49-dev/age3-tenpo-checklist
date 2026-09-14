@@ -1,7 +1,7 @@
 import { sql } from "@vercel/postgres";
 
-import { emptySettings, normalizeReport } from "./calc";
-import type { Report, Settings } from "./types";
+import { emptySettings, normalizeExpense, normalizeReport } from "./calc";
+import type { Expense, Report, Settings } from "./types";
 
 /**
  * 日報の保存先。
@@ -27,6 +27,15 @@ function ensureTables(): Promise<void> {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
       `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS expenses (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          data JSONB NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `;
+      await sql`CREATE INDEX IF NOT EXISTS expenses_date ON expenses (date DESC)`;
       await sql`
         CREATE TABLE IF NOT EXISTS app_settings (
           id INT PRIMARY KEY,
@@ -77,6 +86,36 @@ export async function dbDeleteReport(date: string): Promise<void> {
 export async function dbDeleteAllReports(): Promise<number> {
   await ensureTables();
   const { rowCount } = await sql`DELETE FROM reports`;
+  return rowCount ?? 0;
+}
+
+/** 経費の一覧。新しい日付が先 */
+export async function dbListExpenses(limit = 400): Promise<Expense[]> {
+  await ensureTables();
+  const { rows } = await sql<{ data: Expense }>`
+    SELECT data FROM expenses ORDER BY date DESC, id DESC LIMIT ${limit}
+  `;
+  return rows.map((r) => normalizeExpense(r.data));
+}
+
+export async function dbSaveExpense(e: Expense): Promise<void> {
+  await ensureTables();
+  await sql`
+    INSERT INTO expenses (id, date, data, updated_at)
+    VALUES (${e.id}, ${e.date}, ${JSON.stringify(e)}::jsonb, now())
+    ON CONFLICT (id) DO UPDATE SET date = EXCLUDED.date, data = EXCLUDED.data, updated_at = now()
+  `;
+}
+
+export async function dbDeleteExpense(id: string): Promise<void> {
+  await ensureTables();
+  await sql`DELETE FROM expenses WHERE id = ${id}`;
+}
+
+/** 経費を全部消す */
+export async function dbDeleteAllExpenses(): Promise<number> {
+  await ensureTables();
+  const { rowCount } = await sql`DELETE FROM expenses`;
   return rowCount ?? 0;
 }
 

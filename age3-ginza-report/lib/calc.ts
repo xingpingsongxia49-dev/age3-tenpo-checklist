@@ -1,4 +1,4 @@
-import type { Level, Report, Settings } from "./types";
+import type { Expense, Level, Report, Settings } from "./types";
 
 /** 銀座店でよく報告に出てくる人。設定画面から足し引きできる */
 export const DEFAULT_STAFF = [
@@ -53,8 +53,79 @@ export function weekOf(iso: string): string[] {
   });
 }
 
+/**
+ * 経費を立て替えることが多い人。設定画面から足し引きできる。
+ * トークの報告に出てくる名前をそのまま拾ってある。
+ */
+export const DEFAULT_EXPENSE_USERS = [
+  "りょう",
+  "武井",
+  "ヨウ",
+  "久保",
+  "外木",
+  "野口",
+  "さいとう",
+  "山岡",
+  "大原",
+  "宮﨑",
+  "加藤",
+];
+
+/**
+ * よく使う店。
+ * トークでは「セブンイレブン」と「セブン」、「京プロ」と「京橋プロデュース」が
+ * 混ざっていた。ボタンで選べるようにして、書き方をそろえる。
+ */
+export const DEFAULT_EXPENSE_STORES = [
+  "セブンイレブン",
+  "京橋プロデュース",
+  "まいばすけっと",
+  "オーケー",
+  "ダイソー",
+  "肉のハナマサ",
+  "ヤマト運輸",
+];
+
 export function emptySettings(): Settings {
-  return { staff: [...DEFAULT_STAFF] };
+  return {
+    staff: [...DEFAULT_STAFF],
+    expenseUsers: [...DEFAULT_EXPENSE_USERS],
+    expenseStores: [...DEFAULT_EXPENSE_STORES],
+  };
+}
+
+/** 何も入っていない経費。日付だけ決まっている状態 */
+export function emptyExpense(date: string): Expense {
+  return {
+    id: newExpenseId(),
+    date,
+    user: "",
+    store: "",
+    amount: null,
+    note: "",
+    createdAt: new Date().toISOString(),
+    sentAt: null,
+  };
+}
+
+/** 他とぶつからない経費のIDを作る */
+export function newExpenseId(): string {
+  return `ex_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** 保存済みの経費を今のかたちに合わせて埋め直す */
+export function normalizeExpense(raw: Partial<Expense> & { id: string; date: string }): Expense {
+  return { ...emptyExpense(raw.date), ...raw };
+}
+
+/** 経費の合計 */
+export function expenseTotal(list: Expense[]): number {
+  return list.reduce((s, e) => s + (e.amount ?? 0), 0);
+}
+
+/** 経費を出せる状態か。使用者・店名・金額がそろっていれば送れる */
+export function canSendExpense(e: Expense): boolean {
+  return Boolean(e.user.trim()) && Boolean(e.store.trim()) && e.amount !== null && e.amount > 0;
 }
 
 /** 何も入っていない報告。日付だけ決まっている状態 */

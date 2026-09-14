@@ -1,7 +1,7 @@
 "use client";
 
-import { emptySettings, normalizeReport } from "./calc";
-import type { Report, Settings } from "./types";
+import { emptySettings, normalizeExpense, normalizeReport } from "./calc";
+import type { Expense, Report, Settings } from "./types";
 
 /**
  * 画面から見た保存先。
@@ -14,6 +14,7 @@ import type { Report, Settings } from "./types";
 
 const REPORT_KEY = "age3-ginza-report:reports";
 const SETTINGS_KEY = "age3-ginza-report:settings";
+const EXPENSE_KEY = "age3-ginza-report:expenses";
 
 /** サーバーにDBが繋がっているか。1回問い合わせたら覚えておく */
 let remoteOk: boolean | null = null;
@@ -147,6 +148,80 @@ export async function clearAllReports(): Promise<{ remote: boolean }> {
   if (!(await remoteAvailable())) return { remote: false };
   try {
     const res = await fetch("/api/reports", { method: "DELETE" });
+    return { remote: res.ok };
+  } catch {
+    return { remote: false };
+  }
+}
+
+/* ---- 経費 ---- */
+
+function localExpenses(): Record<string, Expense> {
+  return readLocal<Record<string, Expense>>(EXPENSE_KEY, {});
+}
+
+/** 経費の一覧。新しい日付が先 */
+export async function listExpenses(): Promise<Expense[]> {
+  const local = Object.values(localExpenses()).map(normalizeExpense);
+  if (await remoteAvailable()) {
+    try {
+      const res = await fetch("/api/expenses", { cache: "no-store" });
+      if (res.ok) {
+        const json = (await res.json()) as { expenses: Expense[] };
+        // サーバーにあるものを正とし、サーバーにまだ無い端末内のぶんだけ足す
+        const merged = new Map<string, Expense>();
+        for (const e of local) merged.set(e.id, e);
+        for (const e of json.expenses) merged.set(e.id, normalizeExpense(e));
+        return sortExpenses([...merged.values()]);
+      }
+    } catch {
+      // 端末内のぶんだけ返す
+    }
+  }
+  return sortExpenses(local);
+}
+
+function sortExpenses(list: Expense[]): Expense[] {
+  return list.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+}
+
+/** 経費を1件保存する。サーバーに書けたら true */
+export async function saveExpense(e: Expense): Promise<boolean> {
+  const all = localExpenses();
+  all[e.id] = e;
+  writeLocal(EXPENSE_KEY, all);
+  if (!(await remoteAvailable())) return false;
+  try {
+    const res = await fetch("/api/expenses", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(e),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteExpense(id: string): Promise<void> {
+  const all = localExpenses();
+  delete all[id];
+  writeLocal(EXPENSE_KEY, all);
+  if (await remoteAvailable()) {
+    try {
+      await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+    } catch {
+      // 端末内からは消えているので、次の同期でサーバー側も揃う
+    }
+  }
+}
+
+/** 経費を全部消す。端末内とサーバーの両方から消す */
+export async function clearAllExpenses(): Promise<{ remote: boolean }> {
+  writeLocal(EXPENSE_KEY, {});
+  if (!(await remoteAvailable())) return { remote: false };
+  try {
+    const res = await fetch("/api/expenses", { method: "DELETE" });
     return { remote: res.ok };
   } catch {
     return { remote: false };

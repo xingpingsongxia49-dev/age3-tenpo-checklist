@@ -1,5 +1,5 @@
 import { paymentGap, safeDiffText, shortDate, unitPrice } from "./calc";
-import type { Report } from "./types";
+import type { Expense, Report } from "./types";
 
 /**
  * LINEに貼るテキスト。
@@ -77,4 +77,20 @@ export function warnings(report: Report): string[] {
   }
   if (s.uberOrders === null) w.push("Uberの件数が入っていません（0件ならそう入れてください）");
   return w;
+}
+
+/**
+ * 経費の報告文。
+ * こちらもトークに流れている形そのまま。金額は半角の¥で書かれているので合わせる。
+ * ひとこと（何を買ったか）は、入れたときだけ最後に足す。
+ */
+export function toExpenseText(e: Expense): string {
+  const L = [
+    shortDate(e.date),
+    `使用者:${e.user.trim()}`,
+    `店名:${e.store.trim()}`,
+    `金額:¥${(e.amount ?? 0).toLocaleString("ja-JP")}`,
+  ];
+  if (e.note.trim()) L.push(e.note.trim());
+  return L.join("\n");
 }

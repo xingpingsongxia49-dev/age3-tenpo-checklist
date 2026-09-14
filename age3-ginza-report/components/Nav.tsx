@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/", label: "報告", icon: "📝" },
+  { href: "/", label: "売上", icon: "📝" },
+  { href: "/expenses", label: "経費", icon: "🧾" },
   { href: "/history", label: "履歴", icon: "📚" },
   { href: "/dashboard", label: "分析", icon: "📊" },
   { href: "/settings", label: "設定", icon: "⚙️" },
@@ -18,7 +19,7 @@ export function Nav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-      <ul className="mx-auto grid max-w-[560px] grid-cols-4">
+      <ul className="mx-auto grid max-w-[560px] grid-cols-5">
         {TABS.map((t) => {
           const on = t.href === "/" ? pathname === "/" || pathname === "/preview" : pathname.startsWith(t.href);
           return (

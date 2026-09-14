@@ -45,6 +45,8 @@ export async function middleware(req: NextRequest) {
     (pathname === "/api/settings" && req.method !== "GET") ||
     // 報告を消すのは取り返しがつかないので、設定と同じ管理PINを要求する
     (pathname.startsWith("/api/reports") && req.method === "DELETE") ||
+    // 経費も同じ。ただし「全部消す」だけで、1件ずつ消すのは現場が自分で直せるよう通す
+    (pathname === "/api/expenses" && req.method === "DELETE") ||
     pathname.startsWith("/api/admin");
 
   if (needsAdmin) {
