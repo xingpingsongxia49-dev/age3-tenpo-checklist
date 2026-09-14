@@ -1,15 +1,29 @@
 import type { Expense, Level, Report, Settings } from "./types";
 
-/** 銀座店でよく報告に出てくる人。設定画面から足し引きできる */
+/**
+ * 銀座店の在籍者。売上報告の「報告者」と、経費の「使用者」の両方に出す。
+ * 設定画面から足し引きできる。
+ */
 export const DEFAULT_STAFF = [
-  "Age.3",
-  "Ryo Saito",
-  "Mei",
-  "リディア",
-  "清原 えいと",
-  "しほり",
-  "陽向",
-  "ようちゃん",
+  "長瀬ひなた",
+  "小塩杏莉",
+  "飯塚七彩",
+  "外木実玖",
+  "野口ほのか",
+  "田端しほり",
+  "猪木実里",
+  "谷津七海",
+  "尾崎優華",
+  "芹田愛菜",
+  "茂木琥珀",
+  "椛田芽衣",
+  "清原栄音",
+  "久保歌音",
+  "山岡可歩",
+  "金田桃奈",
+  "宮﨑維幸",
+  "武井美日向",
+  "ファンユニョウ",
 ];
 
 /** 端末のローカル日付を YYYY-MM-DD で返す（UTCに寄ると日付がずれるので自前で組む） */
@@ -54,24 +68,6 @@ export function weekOf(iso: string): string[] {
 }
 
 /**
- * 経費を立て替えることが多い人。設定画面から足し引きできる。
- * トークの報告に出てくる名前をそのまま拾ってある。
- */
-export const DEFAULT_EXPENSE_USERS = [
-  "りょう",
-  "武井",
-  "ヨウ",
-  "久保",
-  "外木",
-  "野口",
-  "さいとう",
-  "山岡",
-  "大原",
-  "宮﨑",
-  "加藤",
-];
-
-/**
  * よく使う店。
  * トークでは「セブンイレブン」と「セブン」、「京プロ」と「京橋プロデュース」が
  * 混ざっていた。ボタンで選べるようにして、書き方をそろえる。
@@ -89,7 +85,7 @@ export const DEFAULT_EXPENSE_STORES = [
 export function emptySettings(): Settings {
   return {
     staff: [...DEFAULT_STAFF],
-    expenseUsers: [...DEFAULT_EXPENSE_USERS],
+    expenseUsers: [...DEFAULT_STAFF],
     expenseStores: [...DEFAULT_EXPENSE_STORES],
   };
 }
@@ -132,7 +128,15 @@ export function canSendExpense(e: Expense): boolean {
 export function emptyReport(date: string): Report {
   return {
     date,
-    sales: { total: null, cash: null, paypay: null, credit: null, guests: null, uberOrders: null },
+    sales: {
+      total: null,
+      cash: null,
+      paypay: null,
+      credit: null,
+      guests: null,
+      uberOrders: null,
+      uberSales: null,
+    },
     reviews: { today: null, total: null, notReflected: false },
     safe: { checked: false, diff: null },
     reporter: "",

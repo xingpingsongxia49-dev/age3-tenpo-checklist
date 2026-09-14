@@ -54,6 +54,10 @@ export default function DashboardPage() {
   const avgSales = avg(reports.map((r) => r.sales.total));
   const avgGuests = avg(reports.map((r) => r.sales.guests));
   const avgUnit = avg(reports.map((r) => unitPrice(r)));
+  const avgUber = avg(reports.map((r) => r.sales.uberOrders));
+  // Uber売上は入れはじめたばかりの項目なので、入っている日だけで平均を出す
+  const avgUberSales = avg(reports.map((r) => r.sales.uberSales));
+  const uberDays = reports.filter((r) => r.sales.uberSales !== null).length;
 
   // 決済手段の割合は、日ごとではなく期間の合計で出す。
   // 日ごとの割合を平均すると、売上の小さい日が大きい日と同じ重みになってしまう
@@ -88,6 +92,12 @@ export default function DashboardPage() {
             <Stat label="総売上" value={yen(avgSales === null ? null : Math.round(avgSales))} sub={`${withSales.length}日`} />
             <Stat label="客数" value={avgGuests === null ? "—" : `${Math.round(avgGuests)}組`} />
             <Stat label="客単価" value={yen(avgUnit === null ? null : Math.round(avgUnit))} />
+            <Stat label="Uber 件数" value={avgUber === null ? "—" : `${Math.round(avgUber * 10) / 10}件`} />
+            <Stat
+              label="Uber 売上"
+              value={yen(avgUberSales === null ? null : Math.round(avgUberSales))}
+              sub={uberDays > 0 ? `${uberDays}日` : undefined}
+            />
           </Section>
 
           <Section title="決済手段の割合" emoji="💳">

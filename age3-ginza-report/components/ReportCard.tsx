@@ -109,6 +109,7 @@ export function ReportCard({ report }: { report: Report }) {
 
         <Heading>🛵 Uber</Heading>
         <Row label="件数" value={s.uberOrders === null ? "—" : `${s.uberOrders}件`} />
+        <Row label="売上" value={yen(s.uberSales)} />
 
         {report.safe.checked ? (
           <>

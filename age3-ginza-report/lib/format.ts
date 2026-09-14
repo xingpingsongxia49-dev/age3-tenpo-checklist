@@ -39,6 +39,8 @@ export function toLineText(report: Report): string {
   L.push(`総口コミ  ${report.reviews.total === null ? "" : `${report.reviews.total.toLocaleString("ja-JP")}件`}`);
   L.push("");
   L.push(`Uber  ${s.uberOrders === null ? "" : `${s.uberOrders}件`}`);
+  // 金額は今までの報告に無かった項目なので、入れた日だけ足す
+  if (s.uberSales !== null) L.push(`Uber売上  ${yenFull(s.uberSales)}`);
 
   // ここから下は、入れたときだけ足す。いつもの本文の形は崩さない
   const tail: string[] = [];

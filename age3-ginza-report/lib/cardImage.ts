@@ -250,6 +250,7 @@ function paint(p: Painter, report: Report): void {
   // Uber
   p.heading("🛵 Uber");
   p.row("件数", s.uberOrders === null ? "—" : `${s.uberOrders}件`);
+  p.row("売上", yen(s.uberSales));
 
   // 金庫。確認した日だけ出す
   if (report.safe.checked) {
