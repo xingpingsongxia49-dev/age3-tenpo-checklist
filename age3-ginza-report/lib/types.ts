@@ -15,6 +15,11 @@ export type Sales = {
   guests: number | null;
   /** Uberの件数 */
   uberOrders: number | null;
+  /**
+   * Uberの売上。
+   * 現金・PayPay・CR とは別に精算されるので、総売上の内訳には足さない。
+   */
+  uberSales: number | null;
 };
 
 /** 口コミ */

@@ -172,7 +172,11 @@ function Body() {
           onChange={(v) => setSales("uberOrders", v)}
           unit="件"
         />
-        <p className="mt-1 text-xs text-ink-soft">0件の日も「0」と入れてください。</p>
+        <MoneyField label="売上" value={s.uberSales} onChange={(v) => setSales("uberSales", v)} />
+        <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+          0件の日も「0」と入れてください。売上はUberで別に精算されるので、上の内訳
+          （現金＋PayPay＋CR）には足しません。
+        </p>
       </Section>
 
       <Section title="金庫・連絡" emoji="🔐">
