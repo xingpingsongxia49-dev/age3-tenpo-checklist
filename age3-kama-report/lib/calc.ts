@@ -552,6 +552,81 @@ export function completion(report: Report): number {
   return checks.filter(Boolean).length / checks.length;
 }
 
+/** 入力漏れ。セクションごとに、まだ埋まっていない項目名を並べる */
+export type Missing = { section: string; items: string[] };
+
+/**
+ * 日報として出せる状態かを見て、埋まっていない項目を返す。
+ *
+ * 0は「入力した」と数える。売れなかった日の0と、入れ忘れの空欄は別のことなので、
+ * 0を入れれば先に進める。空欄のままだと進めない。
+ *
+ * 在庫数は在庫チェック側の担当なので、ここでは見ない。
+ * 「手が空いた時に行った作業」と「その他連絡事項」は、無い日が普通にあるので必須にしない。
+ */
+export function missingFields(report: Report): Missing[] {
+  const out: Missing[] = [];
+  const add = (section: string, items: (string | null)[]) => {
+    const miss = items.filter((x): x is string => x !== null);
+    if (miss.length) out.push({ section, items: miss });
+  };
+  /** 空欄なら項目名を返す。0は入力済みとして扱う */
+  const need = (label: string, v: number | null | undefined) => (v === null || v === undefined ? label : null);
+  const needText = (label: string, v: string) => (v.trim() === "" ? label : null);
+
+  const sh = report.shift;
+  add("シフト・人員体制", [
+    need("出勤人数", sh.headcount),
+    sh.production.length + sh.sales.length === 0 ? "製造担当か販売担当（1人以上）" : null,
+    // 「あり」と答えたときだけ、その時間帯を聞く
+    sh.partOnly ? needText("アルバイトのみの時間帯", sh.partOnlyHours) : null,
+  ]);
+
+  add("缶商品の当日製造数", [canMadeTotal(report) > 0 ? null : "製造数（1品目以上）"]);
+
+  const sa = report.sales;
+  add("売上情報", [
+    need("総売上", sa.total),
+    need("現金", sa.cash),
+    need("ＣＲ", sa.credit),
+    need("PayPay", sa.paypay),
+    need("QR", sa.qr),
+    need("アンカーチケット", sa.anchorTicket),
+    need("客数", sa.guests),
+    need("Uber（件数）", sa.uberOrders),
+    need("Uber売上", sa.uberSales),
+    need("本日の口コミ", sa.reviewsToday),
+    need("総口コミ", sa.reviewsTotal),
+  ]);
+
+  const cu = report.customers;
+  add("お客様情報", [
+    needText("客層", cu.segment),
+    needText("来店ピーク時間帯", cu.peakHour),
+    need("リピーター", cu.repeat),
+    need("新規客", cu.newcomer),
+  ]);
+
+  add("商品別販売数", [productTotal(report) > 0 ? null : "販売数（1品目以上）"]);
+
+  add(
+    "口コミ返信件数",
+    REVIEW_STORES.map((st) => need(st, report.reviewReplies[st])),
+  );
+
+  return out;
+}
+
+/** 埋まっていない項目の数 */
+export function missingCount(report: Report): number {
+  return missingFields(report).reduce((n, m) => n + m.items.length, 0);
+}
+
+/** 全部埋まっていて、日報を出せる状態か */
+export function canSend(report: Report): boolean {
+  return missingFields(report).length === 0;
+}
+
 /** 円表記。null は空欄のまま出す */
 export function yen(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";

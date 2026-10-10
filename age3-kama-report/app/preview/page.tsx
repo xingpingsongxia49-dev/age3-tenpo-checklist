@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 
 import { ReportCard } from "@/components/ReportCard";
 import { renderCardPng } from "@/lib/cardImage";
-import { emptyReport, emptySettings, todayISO } from "@/lib/calc";
+import { canSend, emptyReport, emptySettings, missingFields, todayISO } from "@/lib/calc";
 import { toLineText } from "@/lib/format";
 import { loadReport, loadSettings, saveReport } from "@/lib/storage";
 import type { Report, Settings } from "@/lib/types";
@@ -36,6 +36,9 @@ function PreviewBody() {
   }
 
   const lineText = toLineText(report, settings);
+  // 入力画面から直接URLを開くこともできるので、送る側でも同じ条件で止める
+  const missing = missingFields(report);
+  const ready = canSend(report);
 
   /**
    * LINEの共有シートを開く。使えない端末では文字をコピーして手で貼ってもらう。
@@ -134,14 +137,39 @@ function PreviewBody() {
         </p>
       ) : null}
 
+      {ready ? null : (
+        <div className="card mt-3 border-l-[6px] border-l-warn p-4">
+          <p className="text-sm font-bold text-warn">
+            入力が {missing.reduce((n, m) => n + m.items.length, 0)}項目 足りないので、まだ送れません
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {missing.map((m) => (
+              <li key={m.section} className="text-xs leading-relaxed">
+                <span className="font-bold">{m.section}</span>
+                <br />
+                <span className="text-ink-soft">{m.items.join("・")}</span>
+              </li>
+            ))}
+          </ul>
+          <Link href={`/report?date=${date}`} className="btn btn-ghost mt-3 w-full">
+            入力に戻って埋める
+          </Link>
+        </div>
+      )}
+
       <div className="mt-4 space-y-2">
-        <button type="button" onClick={() => void shareText(lineText, true)} className="btn btn-line w-full">
+        <button
+          type="button"
+          onClick={() => void shareText(lineText, true)}
+          disabled={!ready}
+          className="btn btn-line w-full disabled:opacity-40"
+        >
           💬 LINEに送る（テキスト）
         </button>
         <button
           type="button"
           onClick={() => void shareImage("card", () => renderCardPng(report, settings), "card")}
-          disabled={busy !== null}
+          disabled={busy !== null || !ready}
           className="btn btn-primary w-full disabled:opacity-40"
         >
           {busy === "card" ? "画像を作成中…" : "🖼 日報カードを画像で保存／共有"}

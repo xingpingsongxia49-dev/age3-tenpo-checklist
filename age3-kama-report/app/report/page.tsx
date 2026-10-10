@@ -12,7 +12,9 @@ import { CanMadeSection } from "@/components/StockSections";
 import { TextArea } from "@/components/ui";
 import {
   canMadeTotal,
+  canSend,
   completion,
+  missingFields,
   productTotal,
   todayISO,
   unitPrice,
@@ -39,6 +41,8 @@ function ReportForm() {
 
   const canMade = canMadeTotal(report);
   const done = completion(report);
+  const missing = missingFields(report);
+  const ready = canSend(report);
 
   if (!mounted || loading) {
     return (
@@ -193,7 +197,39 @@ function ReportForm() {
         />
       </Fold>
 
-      <Link href={`/preview?date=${date}`} className="btn btn-primary mt-4 w-full">
+      {/*
+        入力漏れを「どこの何が」まで出す。
+        ボタンが押せないだけだと、どこへ戻ればいいのか分からないため。
+      */}
+      {ready ? (
+        <p className="mt-4 rounded-xl bg-ok-bg px-3 py-2 text-center text-sm font-bold text-ok">
+          ✓ 全項目そろいました
+        </p>
+      ) : (
+        <div className="card mt-4 border-l-[6px] border-l-warn p-4">
+          <p className="text-sm font-bold text-warn">
+            あと {missing.reduce((n, m) => n + m.items.length, 0)}項目で送れます
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+            0の項目は <b className="text-ink">0</b> と入れてください。空欄のままだと送れません。
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {missing.map((m) => (
+              <li key={m.section} className="text-xs leading-relaxed">
+                <span className="font-bold">{m.section}</span>
+                <br />
+                <span className="text-ink-soft">{m.items.join("・")}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <Link
+        href={`/preview?date=${date}`}
+        aria-disabled={!ready}
+        className={`btn btn-primary mt-4 w-full ${ready ? "" : "pointer-events-none opacity-40"}`}
+      >
         日報カードを見る →
       </Link>
       <Link href={`/stock?date=${date}`} className="btn btn-ghost mt-2 w-full">
