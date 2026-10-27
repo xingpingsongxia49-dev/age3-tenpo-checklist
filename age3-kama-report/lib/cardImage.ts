@@ -3,7 +3,6 @@
 import {
   canMadeTotal,
   levelOf,
-  paymentTotal,
   pct,
   prettyDate,
   productRowsOf,
@@ -393,25 +392,13 @@ function paint(p: Painter, report: Report, settings: Settings): void {
   }
   p.gap(8);
 
-  // 売上。決済手段を1行ずつに割って、金額を縦にそろえる。
-  // 1行に2つ詰めていたときは、桁が並ばず読み比べができなかった。
+  // 売上
   p.heading("💰 売上");
   p.row("総売上", yen(report.sales.total), { big: true, valueColor: C.brand });
   p.row("客数", report.sales.guests !== null ? `${report.sales.guests}組` : "—");
   p.row("客単価", yen(unitPrice(report)));
 
-  p.minorHead("内訳");
   p.item("現金", yen(report.sales.cash));
-  p.item("クレジット", yen(report.sales.credit));
-  p.item("PayPay", yen(report.sales.paypay));
-  p.item("QR", yen(report.sales.qr));
-  p.item("アンカーチケット", yen(report.sales.anchorTicket));
-  // 内訳の合計を出す。総売上と食い違っていれば、その場で入力ミスに気づける
-  const pay = paymentTotal(report);
-  const mismatch = report.sales.total !== null && pay !== report.sales.total;
-  p.row("内訳合計", mismatch ? `${yen(pay)}　⚠️総売上と不一致` : yen(pay), {
-    valueColor: mismatch ? C.low : C.inkSoft,
-  });
 
   if (report.sales.uberOrders || report.sales.uberSales) {
     p.minorHead("Uber");

@@ -100,10 +100,6 @@ export function toLineText(report: Report, settings: Settings): string {
   L.push("【売上情報】");
   L.push(`▶︎ 総売上　：${money(report.sales.total)}`);
   L.push(`▶︎ 現金　　：${money(report.sales.cash)}`);
-  L.push(`▶︎ ＣＲ　　：${money(report.sales.credit)}`);
-  L.push(`▶︎ PayPay ：${money(report.sales.paypay)}`);
-  L.push(`▶︎ QR　　　：${money(report.sales.qr)}`);
-  L.push(`▶ ｱﾝｶｰﾁｹｯﾄ：${money(report.sales.anchorTicket)}`);
   L.push("");
   L.push(`▶︎ 客数　　：${num(report.sales.guests, "組")}`);
   L.push(`▶︎ 客単価　：${money(unitPrice(report))}`);
@@ -136,12 +132,20 @@ export function toLineText(report: Report, settings: Settings): string {
     L.push("▶︎ 1番売れた商品名 ：");
   }
   L.push("");
+  // 売れたものだけを出す。商品が65品目あるので、全部並べると
+  // 空欄ばかりの長い文面になって、何が売れた日なのか読み取れなくなる。
+  // 缶の当日製造数と同じ並べ方にそろえてある。
   L.push("【販売個数（詳細）】");
-  for (const g of productRowsOf(report, settings)) {
+  const soldGroups = productRowsOf(report, settings)
+    .map((g) => ({ ...g, items: g.items.filter((it) => (report.products[it.id] ?? 0) > 0) }))
+    .filter((g) => g.items.length > 0);
+  if (soldGroups.length === 0) L.push("▶︎ 本日の販売はありません");
+  for (const g of soldGroups) {
+    const sub = g.items.reduce((n, it) => n + (report.products[it.id] ?? 0), 0);
     const lines = g.items.map(
       (it) => `▶︎ ${it.name}：${pt(report.products[it.id])}`,
     );
-    L.push(`${g.emoji}${g.name}`);
+    L.push(`${g.emoji}${g.name}　小計 ${sub}点`);
     L.push(...lines);
     L.push("");
   }

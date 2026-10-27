@@ -588,10 +588,6 @@ export function missingFields(report: Report): Missing[] {
   add("売上情報", [
     need("総売上", sa.total),
     need("現金", sa.cash),
-    need("ＣＲ", sa.credit),
-    need("PayPay", sa.paypay),
-    need("QR", sa.qr),
-    need("アンカーチケット", sa.anchorTicket),
     need("客数", sa.guests),
     need("Uber（件数）", sa.uberOrders),
     need("Uber売上", sa.uberSales),
