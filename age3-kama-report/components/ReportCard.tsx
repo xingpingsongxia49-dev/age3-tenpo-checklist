@@ -2,7 +2,6 @@
 
 import {
   canMadeTotal,
-  paymentTotal,
   prettyDate,
   productRowsOf,
   productTotal,
@@ -85,8 +84,6 @@ export function ReportCard({ report, settings }: { report: Report; settings: Set
   const replies = reviewReplyTotal(report);
   const tasks = [...report.idleTasks, report.idleNote].filter(Boolean) as string[];
   const mostCan = topCanMade(report);
-  const pay = paymentTotal(report);
-  const mismatch = report.sales.total !== null && pay !== report.sales.total;
 
   return (
     <article className="card overflow-hidden">
@@ -160,17 +157,7 @@ export function ReportCard({ report, settings }: { report: Report; settings: Set
         <Row label="客数" value={report.sales.guests !== null ? `${report.sales.guests}組` : "—"} />
         <Row label="客単価" value={yen(unitPrice(report))} />
 
-        <MinorHead>内訳</MinorHead>
         <Item name="現金" value={yen(report.sales.cash)} />
-        <Item name="クレジット" value={yen(report.sales.credit)} />
-        <Item name="PayPay" value={yen(report.sales.paypay)} />
-        <Item name="QR" value={yen(report.sales.qr)} />
-        <Item name="アンカーチケット" value={yen(report.sales.anchorTicket)} />
-        <Row
-          label="内訳合計"
-          value={mismatch ? `${yen(pay)}　⚠️総売上と不一致` : yen(pay)}
-          alert={mismatch}
-        />
 
         {report.sales.uberOrders || report.sales.uberSales ? (
           <>
