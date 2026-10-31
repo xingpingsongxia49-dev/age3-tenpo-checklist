@@ -1,5 +1,6 @@
 import {
   CAN_ITEMS,
+  PAYMENT_METHODS,
   PRODUCT_GROUPS,
   PRODUCT_INDEX,
   REVIEW_STORES,
@@ -55,6 +56,9 @@ export function emptySettings(): Settings {
     productGroupNames: {},
     productGroupHidden: [],
     productGroupExtra: [],
+    paymentNames: {},
+    paymentHidden: [],
+    paymentExtra: [],
   };
 }
 
@@ -95,6 +99,7 @@ export function emptyReport(date: string): Report {
     products: Object.fromEntries(
       PRODUCT_GROUPS.flatMap((g) => g.items.map((i) => [i.id, 0])),
     ),
+    payments: Object.fromEntries(PAYMENT_METHODS.map((m) => [m.id, null])),
     idleTasks: [],
     idleNote: "",
     reviewReplies: Object.fromEntries(REVIEW_STORES.map((s) => [s, null])),
@@ -172,6 +177,14 @@ export function normalizeReport(raw: Partial<Report> & { date: string }): Report
     sales: { ...base.sales, ...(raw.sales ?? {}) },
     customers: { ...base.customers, ...(raw.customers ?? {}) },
     products: { ...base.products, ...(raw.products ?? {}) },
+    // 決済方法を1本の表に移す前の日報には payments が無い。
+    // 現金とアンカーチケットは当時 sales の中にいたので、そこから引き継ぐ
+    payments: {
+      ...base.payments,
+      cash: raw.sales?.cash ?? null,
+      anchor_ticket: raw.sales?.anchorTicket ?? null,
+      ...(raw.payments ?? {}),
+    },
     reviewReplies: { ...base.reviewReplies, ...(raw.reviewReplies ?? {}) },
     idleTasks: raw.idleTasks ?? [],
   };
@@ -380,6 +393,36 @@ export function unitPrice(report: Report): number | null {
 }
 
 /** 決済手段の内訳合計。総売上と食い違っていたら入力ミスに気づける */
+/**
+ * 今この店で使う決済方法の一覧。
+ * 標準のうしろに、設定画面から足したものを並べる。消したものは含まない。
+ * 入力画面・文面・日報カード・設定画面がどれもこれを見るので、並び順がそろう。
+ */
+export function paymentsAll(settings?: Settings): { id: string; name: string; custom: boolean }[] {
+  const hidden = new Set(settings?.paymentHidden ?? []);
+  return [
+    ...PAYMENT_METHODS.map((m) => ({ id: m.id as string, custom: false })),
+    ...(settings?.paymentExtra ?? []).map((m) => ({ id: m.id, custom: true })),
+  ]
+    .filter((m) => !hidden.has(m.id))
+    .map((m) => ({ ...m, name: paymentName(m.id, settings) }));
+}
+
+/** 設定の上書きを見たうえでの、決済方法の表示名 */
+export function paymentName(id: string, settings?: Settings): string {
+  const override = settings?.paymentNames?.[id]?.trim();
+  if (override) return override;
+  const extra = settings?.paymentExtra?.find((m) => m.id === id);
+  if (extra) return extra.name;
+  return PAYMENT_METHODS.find((m) => m.id === id)?.name || id;
+}
+
+/** 他とぶつからない決済方法IDを作る。設定画面から足すときに使う */
+export function newPaymentId(): string {
+  return `px_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** 決済方法を1本の表に移す前の、売上内訳の合計 */
 export function paymentTotal(report: Report): number {
   const s = report.sales;
   return (s.cash ?? 0) + (s.credit ?? 0) + (s.paypay ?? 0) + (s.qr ?? 0) + (s.anchorTicket ?? 0);
@@ -564,7 +607,7 @@ export type Missing = { section: string; items: string[] };
  * 在庫数は在庫チェック側の担当なので、ここでは見ない。
  * 「手が空いた時に行った作業」と「その他連絡事項」は、無い日が普通にあるので必須にしない。
  */
-export function missingFields(report: Report): Missing[] {
+export function missingFields(report: Report, settings?: Settings): Missing[] {
   const out: Missing[] = [];
   const add = (section: string, items: (string | null)[]) => {
     const miss = items.filter((x): x is string => x !== null);
@@ -587,7 +630,7 @@ export function missingFields(report: Report): Missing[] {
   const sa = report.sales;
   add("売上情報", [
     need("総売上", sa.total),
-    need("現金", sa.cash),
+    ...paymentsAll(settings).map((m) => need(m.name, report.payments[m.id])),
     need("客数", sa.guests),
     need("Uber（件数）", sa.uberOrders),
     need("Uber売上", sa.uberSales),
@@ -614,13 +657,13 @@ export function missingFields(report: Report): Missing[] {
 }
 
 /** 埋まっていない項目の数 */
-export function missingCount(report: Report): number {
-  return missingFields(report).reduce((n, m) => n + m.items.length, 0);
+export function missingCount(report: Report, settings?: Settings): number {
+  return missingFields(report, settings).reduce((n, m) => n + m.items.length, 0);
 }
 
 /** 全部埋まっていて、日報を出せる状態か */
-export function canSend(report: Report): boolean {
-  return missingFields(report).length === 0;
+export function canSend(report: Report, settings?: Settings): boolean {
+  return missingFields(report, settings).length === 0;
 }
 
 /** 円表記。null は空欄のまま出す */

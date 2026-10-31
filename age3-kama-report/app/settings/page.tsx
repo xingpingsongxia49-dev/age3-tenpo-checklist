@@ -7,7 +7,10 @@ import { Section } from "@/components/ui";
 import {
   canTarget,
   emptySettings,
+  newPaymentId,
   newProductId,
+  paymentName,
+  paymentsAll,
   prettyDate,
   productGroupName,
   productGroupsAll,
@@ -17,7 +20,14 @@ import {
   sweetTarget,
   todayISO,
 } from "@/lib/calc";
-import { CAN_GROUPS, PRODUCT_GROUPS, SWEET_ITEMS, SWEET_VARIANTS, sweetKey } from "@/lib/masters";
+import {
+  CAN_GROUPS,
+  PAYMENT_METHODS,
+  PRODUCT_GROUPS,
+  SWEET_ITEMS,
+  SWEET_VARIANTS,
+  sweetKey,
+} from "@/lib/masters";
 import {
   adminPins,
   clearAllReports,
@@ -475,6 +485,135 @@ function ProductRowEditor({
   );
 }
 
+/**
+ * 売上情報の決済方法を編集する。
+ *
+ * 元からある決済方法は「消す」と一覧から隠すだけにして、過去の日報に入っている
+ * 金額には触らない。設定画面から戻せる。
+ * 足した決済方法は px_ ではじまるIDを振る。
+ */
+function PaymentEditor({
+  settings,
+  update,
+}: {
+  settings: Settings;
+  update: (s: Settings) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const hidden = settings.paymentHidden ?? [];
+  const extras = settings.paymentExtra ?? [];
+  const live = paymentsAll(settings);
+
+  const rename = (id: string, name: string) =>
+    update({ ...settings, paymentNames: { ...settings.paymentNames, [id]: name } });
+
+  /** 元からある決済方法を一覧から隠す */
+  const hide = (id: string) =>
+    update({ ...settings, paymentHidden: [...hidden.filter((x) => x !== id), id] });
+
+  const unhide = (id: string) =>
+    update({ ...settings, paymentHidden: hidden.filter((x) => x !== id) });
+
+  /**
+   * 足した決済方法を消す。元から無いので一覧からは完全に取り除く。
+   * ただし名前だけは残す。過去の日報に金額が入っていたとき、名前を捨てると
+   * どの決済方法だったのか分からなくなるため。
+   */
+  const removeExtra = (id: string) =>
+    update({
+      ...settings,
+      paymentNames: { ...settings.paymentNames, [id]: paymentName(id, settings) },
+      paymentExtra: extras.filter((m) => m.id !== id),
+      paymentHidden: hidden.filter((x) => x !== id),
+    });
+
+  const add = () => {
+    const name = draft.trim();
+    if (!name) return;
+    update({ ...settings, paymentExtra: [...extras, { id: newPaymentId(), name }] });
+    setDraft("");
+  };
+
+  const hiddenMaster = PAYMENT_METHODS.filter((m) => hidden.includes(m.id));
+  const hiddenExtra = extras.filter((m) => hidden.includes(m.id));
+
+  return (
+    <>
+      {live.map((m) => {
+        const base = PAYMENT_METHODS.find((x) => x.id === m.id);
+        return (
+          <ProductRowEditor
+            key={m.id}
+            value={settings.paymentNames?.[m.id] ?? (m.custom ? m.name : "")}
+            placeholder={base?.name ?? m.name}
+            originalName={m.custom ? "追加した決済" : (base?.name ?? m.name)}
+            added={m.custom}
+            onChange={(v) => rename(m.id, v)}
+            onDelete={() => (m.custom ? removeExtra(m.id) : hide(m.id))}
+          />
+        );
+      })}
+
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          value={draft}
+          placeholder="PayPay など"
+          aria-label="足す決済方法の名前"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          className="field flex-1"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!draft.trim()}
+          className="tap shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white disabled:opacity-30"
+        >
+          ＋ 追加
+        </button>
+      </div>
+
+      {hiddenMaster.length || hiddenExtra.length ? (
+        <div className="mt-4 rounded-xl border border-line bg-cream-deep p-3">
+          <p className="mb-2 text-xs font-bold text-ink-soft">
+            一覧から消した決済方法（{hiddenMaster.length + hiddenExtra.length}件）
+          </p>
+          {[...hiddenMaster, ...hiddenExtra].map((m) => (
+            <div
+              key={m.id}
+              className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
+            >
+              <span className="flex-1 text-sm leading-tight">{paymentName(m.id, settings)}</span>
+              <button
+                type="button"
+                onClick={() => unhide(m.id)}
+                className="tap shrink-0 rounded-lg border border-line bg-cream px-3 py-1.5 text-xs font-bold active:bg-line"
+              >
+                戻す
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() =>
+          update({ ...settings, paymentNames: {}, paymentHidden: [], paymentExtra: [] })
+        }
+        className="btn btn-ghost mt-4 w-full"
+      >
+        決済方法を最初の状態に戻す
+      </button>
+    </>
+  );
+}
+
 /** 表を画像にして共有／保存するボタン。押している間だけ「作成中…」に変わる */
 function ShareTableButton({
   label,
@@ -694,6 +833,16 @@ export default function SettingsPage() {
             })}
           </div>
         ))}
+      </Fold>
+
+      <Fold title="売上情報の決済方法" emoji="💳">
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
+          日報の「売上情報」に出す決済方法を、ここで
+          <b className="text-ink">足す・消す・名前を変える</b>ことができます。
+          <b className="text-ink">過去の日報の金額は消えません。</b>
+          消したものは入力欄から見えなくなるだけで、あとから戻せます。
+        </p>
+        <PaymentEditor settings={settings} update={update} />
       </Fold>
 
       <Fold title="商品別販売数の商品" emoji="🍦">

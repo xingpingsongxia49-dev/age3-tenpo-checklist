@@ -41,8 +41,8 @@ function ReportForm() {
 
   const canMade = canMadeTotal(report);
   const done = completion(report);
-  const missing = missingFields(report);
-  const ready = canSend(report);
+  const missing = missingFields(report, settings);
+  const ready = canSend(report, settings);
 
   if (!mounted || loading) {
     return (
@@ -150,7 +150,7 @@ function ReportForm() {
           </span>
         }
       >
-        <SalesSection report={report} patch={patch} />
+        <SalesSection report={report} settings={settings} patch={patch} />
       </Fold>
 
       <Fold

@@ -1,25 +1,39 @@
 "use client";
 
 import { NumberField, Select } from "@/components/ui";
-import { unitPrice, yen } from "@/lib/calc";
+import { paymentsAll, unitPrice, yen } from "@/lib/calc";
 import { CUSTOMER_SEGMENTS, PEAK_HOURS } from "@/lib/masters";
-import type { Report } from "@/lib/types";
+import type { Report, Settings } from "@/lib/types";
 
 /** 売上情報。客単価は総売上÷客数で自動計算するので入力欄は置かない */
 export function SalesSection({
   report,
+  settings,
   patch,
 }: {
   report: Report;
+  settings: Settings;
   patch: (fn: (r: Report) => Report) => void;
 }) {
   const set = <K extends keyof Report["sales"]>(key: K, v: Report["sales"][K]) =>
     patch((r) => ({ ...r, sales: { ...r.sales, [key]: v } }));
 
+  /** 決済方法は設定画面で足す・消す・名前を変えられるので、その一覧を回す */
+  const setPayment = (id: string, v: number | null) =>
+    patch((r) => ({ ...r, payments: { ...r.payments, [id]: v } }));
+
   return (
     <div className="space-y-1">
       <NumberField label="総売上" unit="円" value={report.sales.total} onChange={(v) => set("total", v)} />
-      <NumberField label="現金" unit="円" value={report.sales.cash} onChange={(v) => set("cash", v)} />
+      {paymentsAll(settings).map((m) => (
+        <NumberField
+          key={m.id}
+          label={m.name}
+          unit="円"
+          value={report.payments[m.id] ?? null}
+          onChange={(v) => setPayment(m.id, v)}
+        />
+      ))}
 
       <div className="my-3 h-px bg-line" />
 

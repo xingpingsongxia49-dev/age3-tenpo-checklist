@@ -1,6 +1,7 @@
 import {
   canMadeTotal,
   canSummary,
+  paymentsAll,
   topCanMade,
   prettyDate,
   pct,
@@ -33,6 +34,24 @@ function num(n: number | null | undefined, unit = ""): string {
 
 function money(n: number | null | undefined): string {
   return n === null || n === undefined ? "¥" : yen(n);
+}
+
+/** 全角を2、半角を1として数えた表示幅 */
+function width(s: string): number {
+  let n = 0;
+  for (const c of s) n += /[\x00-\x7F]/.test(c) ? 1 : 2;
+  return n;
+}
+
+/**
+ * 【売上情報】の項目名を、金額の位置がそろうように全角スペースで詰める。
+ * 決済方法は設定画面から足せるので、名前の長さが決め打ちにできない。
+ * 幅に収まらない長い名前はそのまま出す（切ると何の項目か分からなくなる）。
+ */
+function label(name: string, w = 8): string {
+  let s = name;
+  while (width(s) + 2 <= w) s += "　";
+  return s;
 }
 
 /**
@@ -99,7 +118,9 @@ export function toLineText(report: Report, settings: Settings): string {
   // 売上情報
   L.push("【売上情報】");
   L.push(`▶︎ 総売上　：${money(report.sales.total)}`);
-  L.push(`▶︎ 現金　　：${money(report.sales.cash)}`);
+  for (const m of paymentsAll(settings)) {
+    L.push(`▶︎ ${label(m.name)}：${money(report.payments[m.id])}`);
+  }
   L.push("");
   L.push(`▶︎ 客数　　：${num(report.sales.guests, "組")}`);
   L.push(`▶︎ 客単価　：${money(unitPrice(report))}`);

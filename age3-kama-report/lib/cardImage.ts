@@ -3,6 +3,7 @@
 import {
   canMadeTotal,
   levelOf,
+  paymentsAll,
   pct,
   prettyDate,
   productRowsOf,
@@ -398,7 +399,8 @@ function paint(p: Painter, report: Report, settings: Settings): void {
   p.row("客数", report.sales.guests !== null ? `${report.sales.guests}組` : "—");
   p.row("客単価", yen(unitPrice(report)));
 
-  p.item("現金", yen(report.sales.cash));
+  p.minorHead("内訳");
+  for (const m of paymentsAll(settings)) p.item(m.name, yen(report.payments[m.id]));
 
   if (report.sales.uberOrders || report.sales.uberSales) {
     p.minorHead("Uber");
