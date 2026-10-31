@@ -2,6 +2,7 @@
 
 import {
   canMadeTotal,
+  paymentsAll,
   prettyDate,
   productRowsOf,
   productTotal,
@@ -157,7 +158,10 @@ export function ReportCard({ report, settings }: { report: Report; settings: Set
         <Row label="客数" value={report.sales.guests !== null ? `${report.sales.guests}組` : "—"} />
         <Row label="客単価" value={yen(unitPrice(report))} />
 
-        <Item name="現金" value={yen(report.sales.cash)} />
+        <MinorHead>内訳</MinorHead>
+        {paymentsAll(settings).map((m) => (
+          <Item key={m.id} name={m.name} value={yen(report.payments[m.id])} />
+        ))}
 
         {report.sales.uberOrders || report.sales.uberSales ? (
           <>

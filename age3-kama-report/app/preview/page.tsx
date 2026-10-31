@@ -37,8 +37,8 @@ function PreviewBody() {
 
   const lineText = toLineText(report, settings);
   // 入力画面から直接URLを開くこともできるので、送る側でも同じ条件で止める
-  const missing = missingFields(report);
-  const ready = canSend(report);
+  const missing = missingFields(report, settings);
+  const ready = canSend(report, settings);
 
   /**
    * LINEの共有シートを開く。使えない端末では文字をコピーして手で貼ってもらう。

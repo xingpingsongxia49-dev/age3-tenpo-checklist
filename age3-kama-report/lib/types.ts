@@ -50,6 +50,11 @@ export type Shift = {
 /** 売上情報 */
 export type Sales = {
   total: number | null;
+  /**
+   * 決済方法を Report.payments の1本の表に移す前の入れもの。
+   * 過去の日報がここに金額を持っているので、読み込むときに payments へ引き継ぐ。
+   * 新しい日報はここには書かない。
+   */
   cash: number | null;
   credit: number | null;
   paypay: number | null;
@@ -86,6 +91,8 @@ export type Report = {
   customers: Customers;
   /** 商品ID -> 販売数 */
   products: Record<string, number>;
+  /** 決済方法ID -> 金額（円） */
+  payments: Record<string, number | null>;
   /** 手が空いた時に行った作業（チェック） */
   idleTasks: string[];
   /** 同・自由記述 */
@@ -144,6 +151,26 @@ export type Settings = {
   productGroupHidden: string[];
   /** 設定画面から足したカテゴリ。標準のカテゴリのうしろに並ぶ */
   productGroupExtra: ExtraGroup[];
+  /**
+   * 決済方法ID -> 表示名。
+   * 未設定なら masters.ts の名前を使う。
+   */
+  paymentNames: Record<string, string>;
+  /**
+   * 一覧から消した決済方法のID。
+   * 消すのは入力欄からだけで、過去の日報に入っている金額はそのまま残す。
+   * 設定画面から戻せる。
+   */
+  paymentHidden: string[];
+  /** 設定画面から足した決済方法 */
+  paymentExtra: ExtraPayment[];
+};
+
+/** 設定画面から足した決済方法 */
+export type ExtraPayment = {
+  /** 他とぶつからないよう px_ ではじまるIDを振る */
+  id: string;
+  name: string;
 };
 
 /** 設定画面から足した商品別販売数のカテゴリ */

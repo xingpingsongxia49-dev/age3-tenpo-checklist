@@ -316,6 +316,16 @@ export const PRODUCT_INDEX: Record<string, { group: string; name: string; emoji:
     ),
   );
 
+/**
+ * 決済方法の初期値。
+ * 設定画面から足す・消す・名前を変えることができるので、ここにあるのは
+ * 「何も設定していないときに出るもの」。
+ */
+export const PAYMENT_METHODS = [
+  { id: "cash", name: "現金" },
+  { id: "anchor_ticket", name: "ANCHOR商品券" },
+] as const;
+
 /** 口コミ返信の対象店舗 */
 export const REVIEW_STORES = ["銀座", "浅草", "原宿", "嘉麻"] as const;
 
